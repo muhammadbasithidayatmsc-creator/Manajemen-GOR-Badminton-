@@ -1,0 +1,6 @@
+{
+  "name": "GOR Badminton Management System",
+  "description": "Sistem manajemen operasional rental lapangan badminton profesional untuk Owner dan Admin dengan public booking WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
