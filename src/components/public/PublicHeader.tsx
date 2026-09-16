@@ -1,25 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Shield,
   Menu,
   X,
   Calendar,
   Phone,
   Sparkles,
   Grid,
-  Info,
   Layers,
   MapPin,
-  HelpCircle,
   Clock,
+  Shield,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
-import { BusinessSettings } from '../../types';
+import { BusinessSettings, User } from '../../types';
 
 interface PublicHeaderProps {
   settings: BusinessSettings;
   onNavigate: (sectionId: string) => void;
   onOpenBookingModal: () => void;
   onOpenLogin: () => void;
+  currentUser?: User | null;
 }
 
 export const PublicHeader: React.FC<PublicHeaderProps> = ({
@@ -27,8 +28,18 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   onNavigate,
   onOpenBookingModal,
   onOpenLogin,
+  currentUser,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleNavClick = (id: string) => {
     onNavigate(id);
@@ -38,123 +49,159 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
   const gorName = settings.gorName || settings.name || 'GOR Badminton Arena';
 
   return (
-    <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-emerald-950/50 shadow-lg text-white">
-      {/* Top micro bar with real-time operating hours and phone */}
-      <div className="hidden sm:block bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 border-b border-emerald-900/30 text-[11px] py-1.5 px-4 text-emerald-200/80">
+    <header
+      className={`sticky top-0 z-40 transition-all duration-300 ${
+        isScrolled
+          ? 'bg-[#030712]/90 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-slate-950/80'
+          : 'bg-[#030712]/75 backdrop-blur-lg border-b border-white/5'
+      }`}
+    >
+      {/* Top Micro Information Bar */}
+      <div className="hidden sm:block bg-gradient-to-r from-slate-950 via-blue-950/40 to-slate-950 border-b border-white/5 text-[11px] py-1.5 px-4 text-slate-400">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-emerald-300 font-semibold">Buka Operasional:</span> {settings.operatingHours}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-xs shadow-emerald-400"></span>
+              <span className="text-slate-200 font-semibold">Jam Operasional:</span> {settings.operatingHours}
             </span>
-            <span className="text-slate-500">|</span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="w-3 h-3 text-emerald-400" />
+            <span className="text-slate-600">|</span>
+            <span className="flex items-center gap-1.5 text-slate-300">
+              <MapPin className="w-3 h-3 text-blue-400" />
               <span className="truncate max-w-sm">{settings.address}</span>
             </span>
           </div>
-          <div className="flex items-center gap-3 font-mono text-emerald-300">
-            <Phone className="w-3 h-3 text-emerald-400" />
-            <span>WA Center: +{settings.adminWhatsApp}</span>
+
+          <div className="flex items-center gap-4">
+            <a
+              href={`https://wa.me/${settings.adminWhatsApp}?text=Halo%20Admin%20${encodeURIComponent(gorName)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-blue-400 hover:text-blue-300 font-mono transition-colors"
+            >
+              <Phone className="w-3 h-3" />
+              <span>+{settings.adminWhatsApp}</span>
+            </a>
           </div>
         </div>
       </div>
 
+      {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
-          {/* Brand Logo & Tagline */}
+        <div className="flex items-center justify-between h-20">
+          {/* Brand Logo & Title */}
           <div
             onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-3.5 cursor-pointer group select-none"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-md shadow-emerald-600/30 group-hover:scale-105 transition-transform shrink-0">
-              {/* Badminton Shuttlecock Icon */}
-              <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" opacity="0.15" />
-                <path d="M12 3a9 9 0 0 0-9 9c0 4.97 4.03 9 9 9s9-4.03 9-9a9 9 0 0 0-9-9zm0 2c3.86 0 7 3.14 7 7 0 1.54-.5 2.97-1.35 4.14L14 12.5V11a2 2 0 0 0-2-2h-1V7h-2v2H8.5L5.8 7.3A7 7 0 0 1 12 5z" />
-              </svg>
+            {/* 3D Shuttlecock Badge Logo */}
+            <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-0.5 shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 group-hover:scale-105 transition-all duration-300">
+              <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center text-white relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
+                {/* 3D Shuttlecock vector icon */}
+                <svg
+                  className="w-6 h-6 text-blue-400 drop-shadow-[0_2px_8px_rgba(59,130,246,0.6)]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2a4 4 0 0 0-4 4c0 1.25.57 2.37 1.46 3.11L5 18l3 3 8.89-4.46A4 4 0 0 0 16 6a4 4 0 0 0-4-4z" />
+                  <path d="M9 14l6-6" />
+                  <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+                </svg>
+              </div>
             </div>
+
             <div className="min-w-0">
-              <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight truncate">
-                {gorName}
-              </span>
-              <span className="text-[10px] sm:text-xs font-bold text-emerald-400 tracking-wider uppercase flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                Badminton Arena &bull; BWF Vinyl Standard
+              <div className="flex items-center gap-1.5">
+                <span className="text-lg sm:text-xl font-black tracking-tight text-white block leading-tight">
+                  {gorName}
+                </span>
+                <span className="px-1.5 py-0.5 rounded-sm bg-blue-500/20 border border-blue-500/30 text-[9px] font-extrabold uppercase tracking-widest text-blue-400">
+                  PRO
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-400 tracking-wide flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Badminton Arena &bull; BWF Vinyl System
               </span>
             </div>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-6 text-xs font-bold tracking-wide uppercase">
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold tracking-wider uppercase">
             <button
               onClick={() => handleNavClick('home')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer py-1"
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
             >
               Home
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
             </button>
             <button
               onClick={() => handleNavClick('jadwal')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1 py-1"
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
             >
-              <Grid className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Jadwal Lapangan</span>
+              Jadwal
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
             </button>
             <button
               onClick={() => handleNavClick('lapangan')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1 py-1"
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
             >
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Lapangan</span>
+              Lapangan
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
             </button>
             <button
               onClick={() => handleNavClick('fasilitas')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1 py-1"
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Fasilitas</span>
+              Fasilitas
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
+            </button>
+            <button
+              onClick={() => handleNavClick('tentang')}
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
+            >
+              Tentang
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
             </button>
             <button
               onClick={() => handleNavClick('lokasi')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1 py-1"
+              className="text-slate-300 hover:text-white transition-colors cursor-pointer py-1.5 relative group"
             >
-              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Lokasi</span>
-            </button>
-            <button
-              onClick={() => handleNavClick('faq')}
-              className="text-slate-300 hover:text-emerald-400 transition-colors cursor-pointer flex items-center gap-1 py-1"
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span>FAQ</span>
+              Lokasi
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full"></span>
             </button>
           </nav>
 
-          {/* Right Actions: Booking Button & Discreet Portal Link */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Primary CTA: Booking Sekarang */}
+          {/* Right Action CTAs */}
+          <div className="flex items-center gap-3">
+            {/* Staff / Owner Portal Entrance */}
+            <button
+              onClick={onOpenLogin}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold tracking-wide border border-white/10 hover:border-blue-500/40 transition-all cursor-pointer shadow-xs"
+              title="Akses Portal Manajemen Staf & Owner"
+            >
+              <Shield className="w-3.5 h-3.5 text-blue-400" />
+              <span>{currentUser ? 'Panel Admin' : 'Portal Staf'}</span>
+            </button>
+
+            {/* Primary CTA: BOOKING SEKARANG */}
             <button
               onClick={onOpenBookingModal}
-              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-md shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              className="relative inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:via-indigo-500 hover:to-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 hover:shadow-blue-500/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer overflow-hidden group"
             >
-              <Calendar className="w-4 h-4" />
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></span>
+              <Calendar className="w-3.5 h-3.5 text-blue-200" />
               <span>Booking Sekarang</span>
             </button>
 
-            {/* Portal Admin / Owner access - Protected & Discreet, NO credentials displayed */}
-            <button
-              onClick={onOpenLogin}
-              title="Akses Portal Staf & Manajemen"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer"
-            >
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Portal Staf</span>
-            </button>
-
-            {/* Mobile menu button */}
+            {/* Mobile Hamburger Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800 focus:outline-hidden"
+              className="lg:hidden p-2.5 rounded-xl bg-slate-900 border border-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -165,93 +212,73 @@ export const PublicHeader: React.FC<PublicHeaderProps> = ({
 
       {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-slate-950 border-b border-emerald-950/80 px-4 pt-3 pb-6 space-y-2.5 shadow-2xl">
-          <div className="p-3 bg-emerald-950/40 rounded-xl border border-emerald-900/40 text-xs text-emerald-300 flex items-center justify-between mb-3">
-            <span className="flex items-center gap-2 font-medium">
-              <Clock className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{settings.operatingHours}</span>
-            </span>
-            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-              Buka
-            </span>
+        <div className="lg:hidden bg-slate-950/95 backdrop-blur-2xl border-b border-white/10 px-4 pt-3 pb-6 space-y-2 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="grid grid-cols-2 gap-2 pb-3 border-b border-white/10 text-xs font-bold uppercase">
+            <button
+              onClick={() => handleNavClick('home')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Home</span>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+            <button
+              onClick={() => handleNavClick('jadwal')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Jadwal Live</span>
+              <Grid className="w-3.5 h-3.5 text-blue-400" />
+            </button>
+            <button
+              onClick={() => handleNavClick('lapangan')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Lapangan</span>
+              <Layers className="w-3.5 h-3.5 text-blue-400" />
+            </button>
+            <button
+              onClick={() => handleNavClick('fasilitas')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Fasilitas</span>
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+            </button>
+            <button
+              onClick={() => handleNavClick('tentang')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Tentang GOR</span>
+              <Info className="w-3.5 h-3.5 text-slate-500" />
+            </button>
+            <button
+              onClick={() => handleNavClick('lokasi')}
+              className="p-3 rounded-xl bg-slate-900/80 border border-white/5 text-left text-slate-200 hover:text-blue-400 flex items-center justify-between"
+            >
+              <span>Lokasi & Peta</span>
+              <MapPin className="w-3.5 h-3.5 text-blue-400" />
+            </button>
           </div>
 
-          <button
-            onClick={() => handleNavClick('home')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors"
-          >
-            Home
-          </button>
-          <button
-            onClick={() => handleNavClick('jadwal')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <Grid className="w-4 h-4 text-emerald-400" />
-            <span>Jadwal & Ketersediaan Lapangan</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('lapangan')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <Layers className="w-4 h-4 text-emerald-400" />
-            <span>Pilihan Lapangan</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('fasilitas')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Fasilitas GOR</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('tentang')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <Info className="w-4 h-4 text-emerald-400" />
-            <span>Tentang Kami</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('aturan')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <Shield className="w-4 h-4 text-emerald-400" />
-            <span>Tata Tertib & Aturan Main</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('lokasi')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <MapPin className="w-4 h-4 text-emerald-400" />
-            <span>Lokasi & Petunjuk Arah</span>
-          </button>
-          <button
-            onClick={() => handleNavClick('faq')}
-            className="w-full text-left py-2.5 px-3 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-200 hover:bg-emerald-950/50 hover:text-emerald-400 transition-colors flex items-center gap-2"
-          >
-            <HelpCircle className="w-4 h-4 text-emerald-400" />
-            <span>FAQ / Pertanyaan Umum</span>
-          </button>
-
-          <div className="pt-3 border-t border-slate-800 space-y-2">
+          <div className="pt-2 flex flex-col gap-2.5">
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
                 onOpenBookingModal();
               }}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider text-center flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30"
             >
               <Calendar className="w-4 h-4" />
-              <span>Booking Lapangan Sekarang</span>
+              <span>Booking Sekarang</span>
             </button>
+
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
                 onOpenLogin();
               }}
-              className="w-full py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white text-xs font-bold uppercase tracking-wider text-center flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl bg-slate-900 border border-white/10 text-slate-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
             >
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Masuk Portal Staf / Owner</span>
+              <Shield className="w-3.5 h-3.5 text-blue-400" />
+              <span>{currentUser ? 'Masuk ke Panel Manajemen' : 'Login Staf / Owner'}</span>
             </button>
           </div>
         </div>

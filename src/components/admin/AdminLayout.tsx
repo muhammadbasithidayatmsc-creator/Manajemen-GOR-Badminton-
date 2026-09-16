@@ -403,6 +403,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               currentUser={currentUser}
               onSaveSettings={handleSaveSettings}
               onReloadData={reloadData}
+              onNavigate={(view) => setActiveView(view as AdminView)}
             />
           )}
 

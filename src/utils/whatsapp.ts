@@ -52,25 +52,38 @@ export function generateBookingWhatsAppUrl(params: {
 
   const gorName = settings.gorName || settings.name || 'GOR Badminton';
 
-  const messageLines = [
-    `Halo Admin ${gorName},`,
-    '',
-    'Saya ingin booking lapangan.',
-    '',
-    `Nama: ${customerName.trim()}`,
-    `Tanggal: ${formattedDate} (${date})`,
-    `Lapangan: ${courtName}`,
-    `Jam: ${timeSlotLabel}`,
-    `Total Biaya: ${formatRupiah(totalAmount)}`,
-    bookingCode ? `Kode Booking: ${bookingCode}` : null,
-    `Catatan: ${notes && notes.trim() ? notes.trim() : '-'}`,
-    '',
-    'Mohon konfirmasi booking saya.',
-    '',
-    'Terima kasih.',
-  ].filter((line) => line !== null);
+  let fullText = '';
+  if (settings.waTemplateCustomer && settings.waTemplateCustomer.trim()) {
+    fullText = settings.waTemplateCustomer
+      .replace(/\[NAMA_GOR\]/gi, gorName)
+      .replace(/\[NAMA\]/gi, customerName.trim())
+      .replace(/\[KODE\]/gi, bookingCode || '-')
+      .replace(/\[LAPANGAN\]/gi, courtName)
+      .replace(/\[TANGGAL\]/gi, `${formattedDate} (${date})`)
+      .replace(/\[JAM\]/gi, timeSlotLabel)
+      .replace(/\[TOTAL\]/gi, formatRupiah(totalAmount));
+  } else {
+    const messageLines = [
+      `Halo Admin ${gorName},`,
+      '',
+      'Saya ingin booking lapangan.',
+      '',
+      `Nama: ${customerName.trim()}`,
+      `Tanggal: ${formattedDate} (${date})`,
+      `Lapangan: ${courtName}`,
+      `Jam: ${timeSlotLabel}`,
+      `Total Biaya: ${formatRupiah(totalAmount)}`,
+      bookingCode ? `Kode Booking: ${bookingCode}` : null,
+      `Catatan: ${notes && notes.trim() ? notes.trim() : '-'}`,
+      '',
+      'Mohon konfirmasi booking saya.',
+      '',
+      'Terima kasih.',
+    ].filter((line) => line !== null);
 
-  const fullText = messageLines.join('\n');
+    fullText = messageLines.join('\n');
+  }
+
   return `https://wa.me/${targetPhone}?text=${encodeURIComponent(fullText)}`;
 }
 

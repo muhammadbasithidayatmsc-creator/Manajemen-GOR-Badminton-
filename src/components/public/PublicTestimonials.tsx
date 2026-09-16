@@ -1,77 +1,80 @@
 import React from 'react';
-import { Star, MessageSquare, Quote, UserCheck } from 'lucide-react';
+import { Star, Quote, Sparkles } from 'lucide-react';
 
 export const PublicTestimonials: React.FC = () => {
-  const reviews = [
+  const testimonials = [
     {
-      name: 'Budi Santoso',
-      role: 'Kapten Komunitas PB Rawamangun',
-      comment:
-        'Karpet vinylnya luar biasa empuk, lutut ga gampang sakit meski main 3 set berturut-turut. Lampunya juga pas banget, ga silau pas mau smash atau angkat lob!',
-      rating: 5,
-      frequency: 'Main rutin tiap Selasa malam',
-    },
-    {
+      id: 1,
       name: 'Rian Ardianto',
-      role: 'Pemain Sparring Antar Klub',
+      role: 'Ketua Komunitas Smash Mania',
       comment:
-        'Sistem booking via WhatsApp sangat responsif dan transparan. Jadwal di website beneran real-time jadi ga pernah kejadian double booking atau rebutan lapangan.',
+        'Kualitas karpet vinyl BWF di sini luar biasa empuk. Kaki tidak cepat pegal meski bermain 3 jam berturut-turut. Sistem bookingnya juga sangat cepat dan transparan.',
       rating: 5,
-      frequency: 'Member mingguan Court 1',
+      avatar: 'RA',
     },
     {
-      name: 'Dewi Lestari',
-      role: 'Member Weekend Badminton Club',
+      id: 2,
+      name: 'Dr. Hendra Gunawan',
+      role: 'Member Sparring Mingguan',
       comment:
-        'Fasilitas toilet & shower bersih banget, kantin juga lengkap ada minuman dingin dan shuttlecock. Tempat parkir luas dan aman. Sangat recommended buat main bareng teman kantor.',
+        'Lampu LED-nya benar-benar anti-silau! Sangat nyaman untuk pemain yang mengenakan kacamata. Kamar mandinya bersih dan tempat parkirnya sangat aman.',
       rating: 5,
-      frequency: 'Main tiap Sabtu sore',
+      avatar: 'HG',
+    },
+    {
+      id: 3,
+      name: 'Jessica Tan',
+      role: 'Pemain Amatir & Konten Kreator',
+      comment:
+        'Desain GOR-nya modern dan estetik sekali. Proses cek jadwal live langsung di web tanpa perlu tanya-tanya manual ke admin membuat booking jadi effortless.',
+      rating: 5,
+      avatar: 'JT',
     },
   ];
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center max-w-3xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-          <Star className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-          <span>Testimoni Komunitas</span>
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Pengalaman Pemain Nyata</span>
         </div>
-        <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-          Apa Kata Pemain & Atlet Kami?
+        <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase leading-tight">
+          PLAYED. LOVED. RETURNED.
         </h2>
-        <p className="mt-2 text-slate-400 text-sm sm:text-base">
-          Pengalaman nyata dari komunitas badminton yang berlatih dan bertanding setiap pekan.
+        <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
+          Dipercaya oleh ribuan atlet amatir, komunitas klub, dan keluarga setiap minggunya.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {reviews.map((rev, idx) => (
+        {testimonials.map((item) => (
           <div
-            key={idx}
-            className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 p-6 rounded-3xl flex flex-col justify-between transition-all shadow-lg"
+            key={item.id}
+            className="bg-[#050B17]/95 border border-white/10 rounded-3xl p-6 sm:p-7 hover:border-blue-500/40 transition-all duration-300 flex flex-col justify-between shadow-2xl shadow-slate-950/70 subtle-3d-card group"
           >
             <div>
-              {/* Stars */}
-              <div className="flex items-center gap-1 mb-4 text-amber-400">
-                {[...Array(rev.rating)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {[...Array(item.rating)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-current" />
+                  ))}
+                </div>
+                <Quote className="w-6 h-6 text-slate-600 group-hover:text-blue-400 transition-colors" />
               </div>
 
-              {/* Quote text */}
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed italic">
-                "{rev.comment}"
+              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed italic">
+                &ldquo;{item.comment}&rdquo;
               </p>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-slate-800 flex items-center justify-between">
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/30">
+                {item.avatar}
+              </div>
               <div>
-                <div className="font-extrabold text-white text-sm flex items-center gap-1.5">
-                  <span>{rev.name}</span>
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                </div>
-                <div className="text-[11px] text-emerald-400/90 font-medium">{rev.role}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{rev.frequency}</div>
+                <h4 className="text-sm font-black text-white">{item.name}</h4>
+                <p className="text-[11px] text-slate-400">{item.role}</p>
               </div>
             </div>
           </div>

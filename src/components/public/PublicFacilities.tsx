@@ -1,97 +1,84 @@
 import React from 'react';
 import {
   Sparkles,
-  Shield,
-  Coffee,
   Car,
-  Wifi,
-  Droplets,
-  HeartHandshake,
+  Coffee,
   CheckCircle,
-  Zap,
+  Lightbulb,
 } from 'lucide-react';
-import { BusinessSettings } from '../../types';
 
-interface PublicFacilitiesProps {
-  settings: BusinessSettings;
-}
-
-export const PublicFacilities: React.FC<PublicFacilitiesProps> = ({ settings }) => {
-  const facilityItems = [
+export const PublicFacilities: React.FC = () => {
+  const facilities = [
     {
-      icon: <Zap className="w-5 h-5 text-emerald-400" />,
-      title: 'Karpet Vinyl BWF 5.0mm',
-      desc: 'Permukaan berstandar internasional yang meredam benturan pada lutut dan pergelangan kaki.',
+      id: 'court',
+      emoji: '🏸',
+      title: 'Premium Court',
+      desc: 'Karpet vinyl BWF standar turnamen 5.0mm dengan daya cengkeram optimal dan peredam hentakan sendi.',
     },
     {
-      icon: <Sparkles className="w-5 h-5 text-emerald-400" />,
-      title: 'Pencahayaan LED 500+ Lux',
-      desc: 'Lampu LED anti-silau dipasang simetris agar visibilitas shuttlecock tetap tajam di setiap sudut.',
+      id: 'lighting',
+      emoji: '💡',
+      title: 'Professional Lighting',
+      desc: 'Lampu LED 500+ Lux anti-silau yang dipasang sejajar garis lapangan untuk visibilitas bola sempurna.',
     },
     {
-      icon: <Droplets className="w-5 h-5 text-emerald-400" />,
-      title: 'Kamar Mandi & Ruang Ganti Bersih',
-      desc: 'Fasilitas shower dan ruang bilas yang wangi, dibersihkan berkala setiap hari.',
+      id: 'parking',
+      emoji: '🚗',
+      title: 'Parking',
+      desc: 'Area parkir kendaraan roda dua dan roda empat luas, aman dengan pantauan CCTV 24 jam.',
     },
     {
-      icon: <Coffee className="w-5 h-5 text-emerald-400" />,
-      title: 'Kantin Minuman & Kok',
-      desc: 'Menyediakan aneka minuman isotonik dingin, air mineral, serta shuttlecock turnamen original.',
+      id: 'mushola',
+      emoji: '🕌',
+      title: 'Mushola',
+      desc: 'Tempat ibadah nyaman, bersih, berpendingin udara dan dilengkapi tempat wudhu higienis.',
     },
     {
-      icon: <HeartHandshake className="w-5 h-5 text-emerald-400" />,
-      title: 'Musholla & Ruang Tunggu Luas',
-      desc: 'Tempat ibadah nyaman lengkap dengan sarana wudhu, serta tribun santai bagi penonton.',
+      id: 'shower',
+      emoji: '🚿',
+      title: 'Clean Facilities',
+      desc: 'Kamar ganti, shower air bersih, dan toilet terawat yang dibersihkan secara rutin setiap hari.',
     },
     {
-      icon: <Car className="w-5 h-5 text-emerald-400" />,
-      title: 'Parkir Mobil & Motor Luas',
-      desc: 'Area parkir aman 24 jam dengan petugas keamanan dan kamera CCTV pengawas.',
-    },
-    {
-      icon: <Wifi className="w-5 h-5 text-emerald-400" />,
-      title: 'Free High-Speed Wi-Fi',
-      desc: 'Koneksi internet cepat untuk pengunjung, live streaming pertandingan, dan rekan sparring.',
-    },
-    {
-      icon: <Shield className="w-5 h-5 text-emerald-400" />,
-      title: 'Sewa Raket & Gripping Service',
-      desc: 'Tersedia rental raket badminton siap pakai dan layanan ganti grip raket langsung di tempat.',
+      id: 'waiting',
+      emoji: '☕',
+      title: 'Waiting Area',
+      desc: 'Tribun santai dan kafetaria sejuk dengan aneka minuman dingin, snack energi, dan free Wi-Fi kencang.',
     },
   ];
 
   return (
-    <section id="fasilitas-section" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl">
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Kenyamanan Bermain</span>
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            Fasilitas Lengkap & Modern
-          </h2>
-          <p className="mt-3 text-slate-400 text-sm sm:text-base">
-            Dirancang khusus untuk mendukung performa atlet badminton, komunitas klub, maupun keluarga yang ingin berolahraga dengan nyaman.
-          </p>
+    <section id="fasilitas-section" className="scroll-mt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="text-center max-w-3xl mx-auto mb-12">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Kenyamanan & Layanan Maksimal</span>
         </div>
+        <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">
+          Fasilitas Unggulan GOR
+        </h2>
+        <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
+          Dirancang untuk memberikan standar kenyamanan tinggi bagi pemain profesional, komunitas, dan keluarga.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {facilityItems.map((item, index) => (
-            <div
-              key={index}
-              className="bg-slate-950/80 border border-slate-800 hover:border-emerald-500/40 p-5 rounded-2xl flex flex-col justify-between transition-all hover:translate-y-[-2px]"
-            >
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
-                  {item.icon}
-                </div>
-                <h3 className="text-base font-black text-white mb-1.5">{item.title}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">{item.desc}</p>
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {facilities.map((fac) => (
+          <div
+            key={fac.id}
+            className="bg-[#050B17]/95 border border-white/10 rounded-3xl p-6 hover:border-blue-500/50 hover:-translate-y-1 transition-all duration-300 shadow-xl shadow-slate-950/60 group"
+          >
+            <div className="text-3xl mb-4 w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+              {fac.emoji}
             </div>
-          ))}
-        </div>
+            <h3 className="text-lg font-black text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">
+              {fac.title}
+            </h3>
+            <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              {fac.desc}
+            </p>
+          </div>
+        ))}
       </div>
     </section>
   );

@@ -1,13 +1,5 @@
 import React from 'react';
-import {
-  Shield,
-  Phone,
-  MapPin,
-  Clock,
-  Sparkles,
-  CreditCard,
-  ChevronRight,
-} from 'lucide-react';
+import { Phone, MapPin, Sparkles, ArrowUp } from 'lucide-react';
 import { BusinessSettings } from '../../types';
 
 interface PublicFooterProps {
@@ -21,164 +13,142 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
   onNavigate,
   onOpenLogin,
 }) => {
+  const currentYear = new Date().getFullYear();
   const gorName = settings.gorName || settings.name || 'GOR Badminton Arena';
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <footer className="bg-slate-950 border-t border-emerald-950 text-white pt-14 pb-10">
+    <footer className="bg-[#02050D] text-white border-t border-white/10 pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 pb-10 border-b border-slate-900">
-          {/* Col 1: Brand & About */}
-          <div className="lg:col-span-4 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-12 border-b border-white/10">
+          {/* Logo & Info */}
+          <div className="md:col-span-5 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shadow-md shadow-emerald-600/30">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black shadow-md shadow-blue-500/30">
+                <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2a4 4 0 0 0-4 4c0 1.25.57 2.37 1.46 3.11L5 18l3 3 8.89-4.46A4 4 0 0 0 16 6a4 4 0 0 0-4-4z" />
+                </svg>
               </div>
-              <div>
-                <span className="text-lg font-black tracking-tight text-white block">
-                  {gorName}
-                </span>
-                <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider">
-                  Badminton Management System
-                </span>
-              </div>
+              <span className="text-xl font-black uppercase tracking-tight text-white">
+                {gorName}
+              </span>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              {settings.tagline || 'Pusat rental lapangan badminton standar turnamen internasional BWF dengan pelayanan profesional dan jadwal real-time.'}
+            <p className="text-xs sm:text-sm text-slate-400 max-w-sm leading-relaxed">
+              Arena badminton profesional berstandar BWF dengan sistem booking real-time, pencahayaan LED turnamen, dan fasilitas lengkap.
             </p>
 
-            <div className="pt-2 text-xs text-slate-400 space-y-2">
-              <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-400 space-y-2 pt-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 <span>{settings.address}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{settings.operatingHours}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="font-mono">+{settings.adminWhatsApp}</span>
+                <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <a
+                  href={`https://wa.me/${settings.adminWhatsApp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-emerald-300 font-mono transition-colors"
+                >
+                  +{settings.adminWhatsApp}
+                </a>
               </div>
             </div>
           </div>
 
-          {/* Col 2: Quick Links */}
-          <div className="lg:col-span-3 space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">
+          {/* Nav Menu */}
+          <div className="md:col-span-3 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
               Navigasi Cepat
             </h4>
-            <ul className="space-y-2 text-xs font-semibold text-slate-300">
+            <ul className="space-y-2 text-xs text-slate-400 font-semibold">
               <li>
                 <button
                   onClick={() => onNavigate('home')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>Beranda</span>
+                  Home
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onNavigate('jadwal')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>Jadwal & Ketersediaan</span>
+                  Jadwal & Ketersediaan
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onNavigate('lapangan')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>Daftar Lapangan</span>
+                  Pilihan Lapangan
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onNavigate('fasilitas')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>Fasilitas GOR</span>
+                  Fasilitas GOR
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('aturan')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  onClick={() => onNavigate('tentang')}
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>Tata Tertib & Aturan</span>
+                  Tentang Kami
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate('faq')}
-                  className="hover:text-emerald-400 transition-colors flex items-center gap-1 cursor-pointer"
+                  onClick={() => onNavigate('lokasi')}
+                  className="hover:text-blue-400 transition-colors cursor-pointer"
                 >
-                  <ChevronRight className="w-3 h-3 text-emerald-500" />
-                  <span>FAQ</span>
+                  Lokasi & Peta
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Col 3: Payment Info & Accounts */}
-          <div className="lg:col-span-5 space-y-3">
-            <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <CreditCard className="w-4 h-4" />
-              <span>Pembayaran & Rekening Resmi</span>
+          {/* Staf / Management Access */}
+          <div className="md:col-span-4 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Portal Manajemen
             </h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Pembayaran uang muka (DP) manual ditransfer langsung ke rekening terverifikasi berikut:
+              Khusus pengelola, staf admin, dan owner untuk mengelola reservasi, transaksi, dan laporan.
             </p>
-
-            <div className="space-y-2">
-              {settings.bankAccounts && settings.bankAccounts.length > 0 ? (
-                settings.bankAccounts.map((acc, i) => (
-                  <div key={i} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-extrabold text-white mr-2">{acc.bankName}</span>
-                      <span className="font-mono text-emerald-300 font-bold">{acc.accountNumber}</span>
-                    </div>
-                    <span className="text-slate-400 text-[11px] truncate max-w-[140px]">
-                      a/n {acc.accountHolder}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs text-slate-300">
-                  {settings.bankInfo}
-                </div>
-              )}
-            </div>
-
-            <div className="text-[11px] text-slate-500 pt-1">
-              Pelunasan di lokasi dapat dilakukan via Tunai atau QRIS Statis di kasir.
-            </div>
+            <button
+              type="button"
+              onClick={onOpenLogin}
+              className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs uppercase tracking-wider border border-white/10 hover:border-blue-500/50 transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              <span>Masuk Portal Manajemen</span>
+            </button>
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright & Discreet Protected Staff Portal Access */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+        {/* Bottom Bar: Copyright & Back to Top */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
           <div>
-            &copy; {new Date().getFullYear()} {gorName}. All rights reserved.
+            &copy; {currentYear} {gorName}. All rights reserved. Professional Badminton Venue Management.
           </div>
 
-          {/* Protected portal link with NO hardcoded credentials */}
-          <div className="flex items-center gap-3">
-            <span className="text-slate-600">|</span>
-            <button
-              onClick={onOpenLogin}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-emerald-400 transition-colors py-1 cursor-pointer"
-            >
-              <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Portal Staf & Manajemen</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={scrollToTop}
+            className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+          >
+            <span>Kembali ke Atas</span>
+            <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
+          </button>
         </div>
       </div>
     </footer>

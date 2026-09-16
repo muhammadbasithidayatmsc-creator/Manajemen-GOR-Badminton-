@@ -16,6 +16,9 @@ import {
   EyeOff,
   UserCheck,
   Lock,
+  Grid,
+  Clock,
+  Sliders,
 } from 'lucide-react';
 import { GorSettings, User } from '../../types';
 import { store } from '../../services/store';
@@ -26,19 +29,21 @@ interface GorSettingsViewProps {
   currentUser?: User | null;
   onSaveSettings: (settings: GorSettings) => void;
   onReloadData?: () => void;
+  onNavigate?: (view: string) => void;
 }
 
-type SettingsTab = 'general' | 'payments' | 'templates' | 'security';
+type SettingsTab = 'business' | 'courts' | 'session' | 'security' | 'system';
 
 export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
   settings,
   currentUser,
   onSaveSettings,
   onReloadData,
+  onNavigate,
 }) => {
   const { success, error } = useToast();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('business');
   const [formData, setFormData] = useState<GorSettings>(settings);
 
   // Security Form State
@@ -143,45 +148,45 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
         )}
       </div>
 
-      {/* Settings Navigation Tabs */}
+      {/* Settings Navigation Tabs (Strictly: Business | Courts | Session | Security | System) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200">
         <button
           type="button"
-          onClick={() => setActiveTab('general')}
+          onClick={() => setActiveTab('business')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'general'
+            activeTab === 'business'
               ? 'bg-slate-900 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
           <Building className="w-4 h-4" />
-          <span>Profil GOR & Operasional</span>
+          <span>Business</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab('payments')}
+          onClick={() => setActiveTab('courts')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'payments'
+            activeTab === 'courts'
               ? 'bg-slate-900 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <CreditCard className="w-4 h-4" />
-          <span>Rekening Bank & QRIS</span>
+          <Grid className="w-4 h-4" />
+          <span>Courts</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setActiveTab('templates')}
+          onClick={() => setActiveTab('session')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'templates'
+            activeTab === 'session'
               ? 'bg-slate-900 text-white shadow-xs'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <MessageSquare className="w-4 h-4" />
-          <span>Template WhatsApp</span>
+          <Clock className="w-4 h-4" />
+          <span>Session</span>
         </button>
 
         <button
@@ -189,17 +194,30 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
           onClick={() => setActiveTab('security')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
             activeTab === 'security'
-              ? 'bg-emerald-700 text-white shadow-xs'
-              : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          <Shield className="w-4 h-4 text-emerald-400" />
-          <span>Security / Keamanan (Account)</span>
+          <Shield className="w-4 h-4" />
+          <span>Security</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('system')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'system'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>System</span>
         </button>
       </div>
 
-      {/* TAB 1: General Info */}
-      {activeTab === 'general' && (
+      {/* TAB 1: Business */}
+      {activeTab === 'business' && (
         <form onSubmit={handleSubmitSettings} className="space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 pb-2 border-b border-slate-100">
@@ -321,19 +339,83 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
         </form>
       )}
 
-      {/* TAB 2: Payment Accounts */}
-      {activeTab === 'payments' && (
+      {/* TAB 2: Courts */}
+      {activeTab === 'courts' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Grid className="w-4 h-4 text-blue-600" />
+              <span>Pengaturan & Inventaris Lapangan</span>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('lapangan')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Kelola Data Lapangan Lengkap</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {store.getCourts().map((c) => (
+              <div key={c.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                <div className="font-bold text-sm text-slate-900">{c.name}</div>
+                <div className="text-xs text-slate-500">Tipe Lantai: {c.surfaceType || 'Vinyl'}</div>
+                <div className="text-xs font-semibold text-blue-600">Rp {c.hourlyRate.toLocaleString('id-ID')}/jam</div>
+                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${c.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {c.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Session */}
+      {activeTab === 'session' && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Clock className="w-4 h-4 text-blue-600" />
+              <span>Pengaturan Sesi Jam Operasional</span>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('sesi-jam')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Kelola Sesi Jam Lengkap</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+            {store.getTimeSlots().map((s) => (
+              <div key={s.id} className={`p-3 rounded-xl border text-center ${s.active ? 'border-blue-200 bg-blue-50/40 text-blue-900' : 'border-slate-200 bg-slate-50 text-slate-400'}`}>
+                <div className="font-mono font-bold text-xs">{s.label}</div>
+                <div className="text-[10px] mt-1 font-semibold">{s.active ? 'Aktif' : 'Nonaktif'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: System (Rekening, QRIS & WhatsApp Templates) */}
+      {activeTab === 'system' && (
         <form onSubmit={handleSubmitSettings} className="space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
+                <CreditCard className="w-4 h-4 text-blue-600" />
                 <span>Daftar Rekening Bank & QRIS Manual</span>
               </div>
               <button
                 type="button"
                 onClick={handleAddBank}
-                className="text-xs font-bold text-emerald-600 hover:text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors"
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors"
               >
                 + Tambah Rekening
               </button>
@@ -406,29 +488,14 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                 rows={2}
                 value={formData.paymentInstructions}
                 onChange={(e) => handleChange('paymentInstructions', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
               />
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Simpan Rekening</span>
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* TAB 3: WhatsApp Templates */}
-      {activeTab === 'templates' && (
-        <form onSubmit={handleSubmitSettings} className="space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 pb-2 border-b border-slate-100">
-              <MessageSquare className="w-4 h-4 text-emerald-600" />
+              <MessageSquare className="w-4 h-4 text-blue-600" />
               <span>Template Pesan WhatsApp Otomatis</span>
             </div>
 
@@ -446,7 +513,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   rows={4}
                   value={formData.waTemplateCustomer}
                   onChange={(e) => handleChange('waTemplateCustomer', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
 
@@ -463,7 +530,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   rows={4}
                   value={formData.waTemplateConfirmation}
                   onChange={(e) => handleChange('waTemplateConfirmation', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -472,10 +539,10 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
           <div className="flex justify-end">
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider shadow-sm transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>Simpan Template</span>
+              <span>Simpan Konfigurasi System</span>
             </button>
           </div>
         </form>

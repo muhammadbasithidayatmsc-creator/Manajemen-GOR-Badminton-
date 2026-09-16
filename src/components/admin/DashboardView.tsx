@@ -93,6 +93,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .filter((t) => t.date.startsWith(currentMonthPrefix))
       .reduce((sum, t) => sum + (t.depositAmount || 0), 0);
 
+    // Outstanding Payment (Total Belum Lunas)
+    const outstandingPayment = bookings
+      .filter((b) => b.bookingStatus !== 'CANCELLED' && b.paymentStatus !== 'LUNAS')
+      .reduce((sum, b) => sum + Math.max(0, (b.totalAmount || 0) - (b.depositAmount || 0)), 0);
+
     return {
       totalTodayBookings,
       pendingCount,
@@ -104,6 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       totalCourtsCount: courts.length,
       omzetHariIni,
       omzetBulanIni,
+      outstandingPayment,
     };
   }, [todayBookings, bookings, activeCourts, activeSlots, courts, transactions, todayStr, currentMonthPrefix]);
 
@@ -136,170 +142,144 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-8 p-4 sm:p-8 max-w-7xl mx-auto">
-      {/* 8 Statistics Cards strictly matching requirements */}
+      {/* 5 Primary Metric Cards (Strictly: TODAY, REVENUE, COURTS, PENDING, PAYMENT) */}
       <div>
-        <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 mb-3">
-          Ringkasan Operasional & Finansial
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* 1. Booking Hari Ini */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-500">
+            Metrik Utama Operasional
+          </h2>
+          <span className="text-[11px] font-semibold text-slate-400">
+            Realtime SSOT Synchronized
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* 1. TODAY */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-blue-400 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Booking Hari Ini
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                TODAY
               </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <Calendar className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900">
+            <div className="mt-2.5 flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {stats.totalTodayBookings}
               </span>
-              <span className="text-xs text-slate-500">sesi</span>
+              <span className="text-xs font-semibold text-slate-400">sesi</span>
             </div>
+            <p className="text-[11px] text-slate-500 mt-1">Booking hari ini</p>
           </div>
 
-          {/* 2. Booking Pending */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
+          {/* 2. REVENUE */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs hover:border-emerald-400 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Booking Pending
+              <span className="text-[11px] font-extrabold text-emerald-800 uppercase tracking-wider">
+                REVENUE
               </span>
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                <Clock className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-amber-600">
-                {stats.pendingCount}
-              </span>
-              <span className="text-xs text-slate-500">menunggu</span>
-            </div>
-          </div>
-
-          {/* 3. Booking Confirmed */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Booking Confirmed
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-blue-600">
-                {stats.confirmedCount}
-              </span>
-              <span className="text-xs text-slate-500">aktif</span>
-            </div>
-          </div>
-
-          {/* 4. Slot Tersedia */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Slot Tersedia (Hari Ini)
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
-                <Layers className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-teal-600">
-                {stats.availableSlotsToday}
-              </span>
-              <span className="text-xs text-slate-500">slot</span>
-            </div>
-          </div>
-
-          {/* 5. Lapangan Terisi */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Lapangan Terisi
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-                <Activity className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                {stats.occupiedCourtsCount} / {stats.totalCourtsCount}
-              </span>
-              <span className="text-xs text-slate-500">lapangan</span>
-            </div>
-          </div>
-
-          {/* 6. Booking Selesai */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Booking Selesai
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <CheckCheck className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-emerald-600">
-                {stats.completedCount}
-              </span>
-              <span className="text-xs text-slate-500">total</span>
-            </div>
-          </div>
-
-          {/* 7. Booking Cancelled */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Booking Dibatalkan
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
-                <XCircle className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-black text-rose-600">
-                {stats.cancelledCount}
-              </span>
-              <span className="text-xs text-slate-500">batal</span>
-            </div>
-          </div>
-
-          {/* 7. Omzet Hari Ini */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs hover:border-emerald-300 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                Omzet Hari Ini
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-black text-emerald-700 truncate">
+            <div className="mt-2.5">
+              <span className="text-lg sm:text-2xl font-black text-emerald-700 truncate tracking-tight block">
                 {formatRupiah(stats.omzetHariIni)}
               </span>
             </div>
+            <p className="text-[11px] text-emerald-700 font-medium mt-1">Omzet hari ini</p>
           </div>
 
-          {/* 8. Omzet Bulan Ini */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all">
+          {/* 3. COURTS */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-indigo-400 hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Omzet Bulan Ini
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                COURTS
               </span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Activity className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                {stats.occupiedCourtsCount}
+              </span>
+              <span className="text-xs font-bold text-slate-400">/ {stats.totalCourtsCount}</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Lapangan terisi</p>
+          </div>
+
+          {/* 4. PENDING */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-amber-400 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                PENDING
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-black text-amber-600 tracking-tight">
+                {stats.pendingCount}
+              </span>
+              <span className="text-xs font-semibold text-slate-400">menunggu</span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">Booking pending</p>
+          </div>
+
+          {/* 5. PAYMENT */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-rose-400 hover:shadow-md transition-all col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                PAYMENT
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-xl sm:text-2xl font-black text-slate-900 truncate">
-                {formatRupiah(stats.omzetBulanIni)}
+            <div className="mt-2.5">
+              <span className="text-lg sm:text-xl font-black text-rose-600 truncate tracking-tight block">
+                {formatRupiah(stats.outstandingPayment)}
               </span>
             </div>
+            <p className="text-[11px] text-slate-500 mt-1">Outstanding payment</p>
+          </div>
+        </div>
+
+        {/* Secondary Operational Stats Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase">Confirmed</div>
+              <div className="text-lg font-black text-blue-600">{stats.confirmedCount} sesi</div>
+            </div>
+            <CheckCircle2 className="w-5 h-5 text-blue-500/40" />
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase">Slot Tersedia Hari Ini</div>
+              <div className="text-lg font-black text-emerald-600">{stats.availableSlotsToday} slot</div>
+            </div>
+            <Layers className="w-5 h-5 text-emerald-500/40" />
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase">Selesai / Dibatalkan</div>
+              <div className="text-lg font-black text-slate-800">{stats.completedCount} / {stats.cancelledCount}</div>
+            </div>
+            <CheckCheck className="w-5 h-5 text-slate-400" />
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200/70 p-3.5 rounded-xl flex items-center justify-between">
+            <div>
+              <div className="text-[10px] font-bold text-slate-500 uppercase">Omzet Bulan Ini</div>
+              <div className="text-sm font-black text-slate-900">{formatRupiah(stats.omzetBulanIni)}</div>
+            </div>
+            <DollarSign className="w-5 h-5 text-emerald-500/40" />
           </div>
         </div>
       </div>

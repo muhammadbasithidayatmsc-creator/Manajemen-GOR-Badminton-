@@ -1,7 +1,6 @@
 import React from 'react';
-import { MapPin, Clock, Phone, ExternalLink, MessageCircle, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Phone, Sparkles, ExternalLink, Clock } from 'lucide-react';
 import { BusinessSettings } from '../../types';
-import { generateDirectInquiryWhatsAppUrl } from '../../utils/whatsapp';
 
 interface PublicLocationProps {
   settings: BusinessSettings;
@@ -9,109 +8,96 @@ interface PublicLocationProps {
 
 export const PublicLocation: React.FC<PublicLocationProps> = ({ settings }) => {
   const gorName = settings.gorName || settings.name || 'GOR Badminton Arena';
-  const waUrl = generateDirectInquiryWhatsAppUrl(settings);
-  const mapsUrl = settings.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${gorName} ${settings.address}`)}`;
+  const encodedAddress = encodeURIComponent(settings.address || 'GOR Badminton');
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+  const whatsappUrl = `https://wa.me/${settings.adminWhatsApp}?text=Halo%20Admin%20${encodeURIComponent(gorName)},%20mohon%20info%20petunjuk%20arah%20dan%20lokasi%20lapangan.`;
 
   return (
-    <section id="lokasi-section" className="scroll-mt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Info Details */}
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+    <section id="lokasi-section" className="scroll-mt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="bg-[#050B17]/95 border border-white/10 rounded-3xl p-6 sm:p-10 shadow-2xl shadow-slate-950/80">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          {/* Left Details */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-wider">
               <MapPin className="w-3.5 h-3.5" />
-              <span>Akses Mudah & Strategis</span>
+              <span>Lokasi Strategis & Akses Mudah</span>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Lokasi & Jam Operasional
+            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">
+              Kunjungi Arena Kami
             </h2>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-              GOR berlokasi di area strategis dengan akses jalan lebar, mudah dijangkau kendaraan roda dua maupun roda empat, serta dekat dengan pusat kuliner dan minimarket.
-            </p>
-
-            <div className="space-y-4 pt-2">
-              <div className="flex items-start gap-3.5 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                  <MapPin className="w-5 h-5" />
-                </div>
+            <div className="space-y-4 text-sm text-slate-300">
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-900/60 border border-white/5">
+                <MapPin className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Alamat Lengkap</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{settings.address}</div>
+                  <div className="text-xs text-slate-400 uppercase font-bold">Alamat Resmi</div>
+                  <div className="text-sm sm:text-base font-semibold text-white mt-1">
+                    {settings.address}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3.5 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5" />
-                </div>
+              <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-900/60 border border-white/5">
+                <Clock className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
                 <div>
-                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Jam Operasional</div>
-                  <div className="text-sm font-semibold text-white mt-0.5">{settings.operatingHours}</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3.5 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-                  <Phone className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">WhatsApp Admin Resmi</div>
-                  <div className="text-sm font-semibold text-white mt-0.5 font-mono">+{settings.adminWhatsApp}</div>
+                  <div className="text-xs text-slate-400 uppercase font-bold">Jam Operasional</div>
+                  <div className="text-sm sm:text-base font-semibold text-white mt-1">
+                    {settings.operatingHours} (Setiap Hari)
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            {/* Requested Buttons: Google Maps button & WhatsApp button */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <a
-                href={mapsUrl}
+                href={googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-md cursor-pointer"
+                className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
-                <Navigation className="w-4 h-4" />
-                <span>Buka di Google Maps</span>
-                <ExternalLink className="w-3.5 h-3.5" />
+                <Navigation className="w-4 h-4 text-blue-200" />
+                <span>Buka Google Maps</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
               </a>
 
               <a
-                href={waUrl}
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all border border-slate-700 cursor-pointer"
+                className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider border border-white/10 hover:border-emerald-500/50 flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-400" />
-                <span>Chat Admin WhatsApp</span>
+                <Phone className="w-4 h-4 text-emerald-400" />
+                <span>WhatsApp Admin (+{settings.adminWhatsApp})</span>
               </a>
             </div>
           </div>
 
-          {/* Graphic Map Card Representation */}
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[320px]">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Peta & Navigasi</span>
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded">Rute Mudah</span>
+          {/* Right Map Visual Placeholder / Realistic Card */}
+          <div className="lg:col-span-5 relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl h-72 lg:h-80 group">
+            <img
+              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=800&auto=format&fit=crop"
+              alt="City Map & Navigation"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-75"
+            />
+            <div className="absolute inset-0 bg-blue-950/30 backdrop-blur-[2px]"></div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-white">
+              <div className="w-14 h-14 rounded-2xl bg-blue-600/90 shadow-xl shadow-blue-600/40 flex items-center justify-center mb-3 animate-bounce">
+                <MapPin className="w-7 h-7 text-white" />
               </div>
-              <h3 className="text-lg font-black text-white">{gorName}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Tersedia petunjuk arah langsung ke lokasi GOR melalui navigasi GPS Google Maps atau Waze.
-              </p>
-            </div>
-
-            {/* Visual map styled card */}
-            <div className="my-6 p-4 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-2">
-              <MapPin className="w-8 h-8 text-emerald-400 mx-auto animate-bounce" />
-              <div className="text-xs font-bold text-white">Petunjuk Parkir</div>
-              <div className="text-[11px] text-slate-400">
-                Pintu masuk utama untuk mobil & motor berada di sisi timur gedung. Parkir gratis bagi pemain terdaftar.
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-500 text-center">
-              Perlu konfirmasi ketersediaan parkir rombongan? Hubungi tim keamanan kami via WhatsApp.
+              <div className="text-base font-black uppercase tracking-wider">{gorName}</div>
+              <div className="text-xs text-slate-300 mt-1 max-w-xs">{settings.address}</div>
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 px-4 py-2 rounded-lg bg-white/15 hover:bg-white/25 backdrop-blur-md text-xs font-bold text-white transition-all inline-flex items-center gap-1.5"
+              >
+                <span>Lihat Navigasi Rute</span>
+                <Navigation className="w-3 h-3" />
+              </a>
             </div>
           </div>
         </div>

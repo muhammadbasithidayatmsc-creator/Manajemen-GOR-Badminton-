@@ -60,7 +60,20 @@ export const TransactionListView: React.FC<TransactionListViewProps> = ({
     });
   }, [transactions, searchTerm, methodFilter, statusFilter]);
 
-  // Totals
+  // 4 Core Financial Metrics strictly matching prompt requirements
+  const financialMetrics = useMemo(() => {
+    const totalRevenue = filteredTransactions.reduce((acc, t) => acc + (t.totalAmount || 0), 0);
+    const dpReceived = filteredTransactions
+      .filter((t) => t.paymentStatus === 'DP')
+      .reduce((acc, t) => acc + (t.depositAmount || 0), 0);
+    const outstanding = filteredTransactions.reduce((acc, t) => acc + (t.remainingAmount || 0), 0);
+    const paid = filteredTransactions
+      .filter((t) => t.paymentStatus === 'LUNAS')
+      .reduce((acc, t) => acc + (t.depositAmount || 0), 0);
+
+    return { totalRevenue, dpReceived, outstanding, paid };
+  }, [filteredTransactions]);
+
   const totalOmzet = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => acc + (t.depositAmount || 0), 0);
   }, [filteredTransactions]);
@@ -119,33 +132,50 @@ export const TransactionListView: React.FC<TransactionListViewProps> = ({
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Total Transaksi Tercatat
+      {/* 4 Financial Status Cards strictly matching requirements */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* 1. TOTAL REVENUE */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            TOTAL REVENUE
           </span>
-          <p className="text-2xl font-black text-slate-900 mt-1">
-            {filteredTransactions.length} <span className="text-xs font-normal text-slate-400">transaksi</span>
+          <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1 truncate">
+            {formatRupiah(financialMetrics.totalRevenue)}
           </p>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">Akumulasi Nilai Sewa</span>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs">
-          <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-            Total Uang Diterima (Kas & Bank)
+        {/* 2. DP RECEIVED */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-200 bg-indigo-50/20 shadow-xs hover:border-indigo-300 transition-all">
+          <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block">
+            DP RECEIVED
           </span>
-          <p className="text-2xl font-black text-emerald-700 mt-1 truncate">
-            {formatRupiah(totalOmzet)}
+          <p className="text-xl sm:text-2xl font-black text-indigo-600 mt-1 truncate">
+            {formatRupiah(financialMetrics.dpReceived)}
           </p>
+          <span className="text-[10px] text-indigo-400 mt-0.5 block">Uang Muka Diterima</span>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-xs">
-          <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-            Sisa Tagihan Belum Terbayar (Piutang)
+        {/* 3. OUTSTANDING */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-xs hover:border-amber-300 transition-all">
+          <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
+            OUTSTANDING
           </span>
-          <p className="text-2xl font-black text-amber-700 mt-1 truncate">
-            {formatRupiah(totalPiutang)}
+          <p className="text-xl sm:text-2xl font-black text-amber-600 mt-1 truncate">
+            {formatRupiah(financialMetrics.outstanding)}
           </p>
+          <span className="text-[10px] text-amber-500 mt-0.5 block">Sisa Tagihan Belum Lunas</span>
+        </div>
+
+        {/* 4. PAID */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs hover:border-emerald-300 transition-all">
+          <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+            PAID
+          </span>
+          <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1 truncate">
+            {formatRupiah(financialMetrics.paid)}
+          </p>
+          <span className="text-[10px] text-emerald-500 mt-0.5 block">Total Pelunasan Penuh</span>
         </div>
       </div>
 

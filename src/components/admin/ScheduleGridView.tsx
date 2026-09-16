@@ -82,11 +82,14 @@ export const ScheduleGridView: React.FC<ScheduleGridViewProps> = ({
       {/* Header & Date Controls */}
       <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 leading-tight">
-            Matriks Jadwal Lapangan
+          <span className="text-[10px] font-black tracking-widest text-blue-600 uppercase">
+            CALENDAR MATRIX
+          </span>
+          <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight uppercase">
+            TODAY&apos;S COURT SCHEDULE
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Format: JAM | {activeCourts.map((c) => c.name).join(' | ')}
+            {formattedDateIndo} &bull; {activeCourts.length} Lapangan Terdaftar
           </p>
         </div>
 

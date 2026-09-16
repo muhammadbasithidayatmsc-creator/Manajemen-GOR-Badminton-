@@ -221,20 +221,34 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                     <td className="py-3.5 px-4 font-medium text-slate-800">
                       {b.date}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {b.customerName}
-                    </td>
                     <td className="py-3.5 px-4">
-                      <a
-                        href={`https://wa.me/${b.customerPhone.replace(/[^0-9]/g, '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-semibold"
-                        title="Chat WhatsApp"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>{b.customerPhone}</span>
-                      </a>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-xs shrink-0 shadow-xs">
+                          {b.customerName
+                            ? b.customerName
+                                .split(' ')
+                                .map((n: string) => n[0])
+                                .slice(0, 2)
+                                .join('')
+                                .toUpperCase()
+                            : 'CU'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-slate-900 leading-snug truncate">
+                            {b.customerName}
+                          </div>
+                          <a
+                            href={`https://wa.me/${b.customerPhone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            title="Chat WhatsApp"
+                          >
+                            <Phone className="w-3 h-3 text-blue-500" />
+                            <span>{b.customerPhone}</span>
+                          </a>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-800">
                       {b.courtName}
