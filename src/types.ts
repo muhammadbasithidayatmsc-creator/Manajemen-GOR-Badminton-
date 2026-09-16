@@ -37,12 +37,42 @@ export interface TimeSlot {
 export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 export type PaymentStatus = 'BELUM BAYAR' | 'DP' | 'LUNAS';
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'QRIS' | 'LAINNYA';
+export type BookingType = 'REGULAR' | 'MONTHLY';
 
 export interface Customer {
   id: string;
   name: string;
   phone: string;
   notes?: string;
+  createdAt: string;
+}
+
+export interface MonthlyBookingGroup {
+  id: string;
+  groupCode: string; // e.g. "MBKG-202610-001"
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  courtId: string;
+  courtName: string;
+  periodLabel: string; // e.g. "Oktober 2026" or "1 Okt 2026 - 31 Okt 2026"
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  selectedDays: number[]; // 0=Minggu, 1=Senin, ..., 6=Sabtu
+  selectedDaysLabels: string[]; // e.g. ['Senin', 'Rabu']
+  timeSlotId: string;
+  timeSlotLabel: string;
+  sessionCount: number;
+  ratePerSession: number;
+  totalAmount: number;
+  depositAmount: number;
+  remainingAmount: number;
+  bookingStatus: BookingStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  notes?: string;
+  bookingIds: string[]; // References to individual Booking records generated
+  dates: string[]; // List of all dates generated
   createdAt: string;
 }
 
@@ -67,6 +97,8 @@ export interface Booking {
   notes?: string;
   createdAt: string;
   source?: 'public_whatsapp' | 'admin_manual';
+  bookingType?: BookingType;
+  monthlyGroupId?: string;
 }
 
 export interface Transaction {

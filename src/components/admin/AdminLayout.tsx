@@ -5,6 +5,8 @@ import {
   BusinessSettings,
   Court,
   Customer,
+  MonthlyBookingGroup,
+  PaymentStatus,
   TimeSlot,
   Transaction,
   User,
@@ -48,6 +50,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [courts, setCourts] = useState<Court[]>(() => store.getCourts());
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(() => store.getTimeSlots());
   const [bookings, setBookings] = useState<Booking[]>(() => store.getBookings());
+  const [monthlyBookings, setMonthlyBookings] = useState<MonthlyBookingGroup[]>(() => store.getMonthlyBookings());
   const [customers, setCustomers] = useState<Customer[]>(() => store.getCustomers());
   const [transactions, setTransactions] = useState<Transaction[]>(() => store.getTransactions());
   const [users, setUsers] = useState<User[]>(() => store.getUsers());
@@ -58,6 +61,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     setCourts(store.getCourts());
     setTimeSlots(store.getTimeSlots());
     setBookings(store.getBookings());
+    setMonthlyBookings(store.getMonthlyBookings());
     setCustomers(store.getCustomers());
     setTransactions(store.getTransactions());
     setUsers(store.getUsers());
@@ -128,6 +132,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     if (res.success) {
       success('Status Diperbarui', `Booking diubah ke status ${status}`);
       reloadData();
+    }
+  };
+
+  // Monthly Booking Operations
+  const handleDeleteMonthlyBooking = (groupId: string, deleteRelated = true) => {
+    const ok = store.deleteMonthlyBooking(groupId, deleteRelated);
+    if (ok) {
+      success('Booking Bulanan Dihapus', 'Data booking bulanan dan seluruh sesinya berhasil dihapus.');
+      reloadData();
+    } else {
+      error('Gagal Menghapus', 'Data booking bulanan tidak ditemukan.');
+    }
+  };
+
+  const handleUpdateMonthlyStatus = (
+    groupId: string,
+    updates: { bookingStatus?: BookingStatus; paymentStatus?: PaymentStatus }
+  ) => {
+    const res = store.updateMonthlyBookingStatus(groupId, updates);
+    if (res.success) {
+      success('Status Diperbarui', 'Status booking bulanan berhasil diperbarui.');
+      reloadData();
+    } else {
+      error('Gagal Memperbarui', res.error || 'Terjadi kendala saat update status.');
     }
   };
 
@@ -342,13 +370,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           {activeView === 'booking' && (
             <BookingListView
               bookings={bookings}
+              monthlyBookings={monthlyBookings}
               courts={courts}
+              settings={settings}
               onOpenBookingModal={(b) => {
                 if (b) handleOpenEditBooking(b);
                 else handleOpenNewBooking();
               }}
               onDeleteBooking={handleDeleteBooking}
               onQuickUpdateStatus={handleQuickUpdateStatus}
+              onDeleteMonthlyBooking={handleDeleteMonthlyBooking}
+              onUpdateMonthlyStatus={handleUpdateMonthlyStatus}
             />
           )}
 

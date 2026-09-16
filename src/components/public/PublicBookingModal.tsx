@@ -12,13 +12,31 @@ import {
   Send,
   Sparkles,
   CreditCard,
-  ShieldCheck,
   Building,
+  CalendarDays,
+  Repeat,
+  Info,
 } from 'lucide-react';
-import { Booking, BusinessSettings, Court, TimeSlot } from '../../types';
-import { formatRupiah, getTodayString, store } from '../../services/store';
-import { generateBookingWhatsAppUrl } from '../../utils/whatsapp';
+import {
+  Booking,
+  BookingType,
+  BusinessSettings,
+  Court,
+  MonthlyBookingGroup,
+  TimeSlot,
+} from '../../types';
+import {
+  formatRupiah,
+  generateMonthlyDates,
+  getTodayString,
+  store,
+} from '../../services/store';
+import {
+  generateBookingWhatsAppUrl,
+  generateMonthlyBookingWhatsAppUrl,
+} from '../../utils/whatsapp';
 import { useToast } from '../../context/ToastContext';
+import { InvoiceModal } from '../common/InvoiceModal';
 
 interface PublicBookingModalProps {
   isOpen: boolean;
@@ -32,6 +50,16 @@ interface PublicBookingModalProps {
   initialSlotId?: string;
   onBookingSubmitted?: () => void;
 }
+
+const DAYS_OF_WEEK = [
+  { index: 1, label: 'Senin', short: 'Sen' },
+  { index: 2, label: 'Selasa', short: 'Sel' },
+  { index: 3, label: 'Rabu', short: 'Rab' },
+  { index: 4, label: 'Kamis', short: 'Kam' },
+  { index: 5, label: 'Jumat', short: 'Jum' },
+  { index: 6, label: 'Sabtu', short: 'Sab' },
+  { index: 0, label: 'Minggu', short: 'Min' },
+];
 
 export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   isOpen,
@@ -53,17 +81,41 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     [timeSlots]
   );
 
-  // Form states
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate || getTodayString(0));
+  // Booking Type: REGULAR (Harian) or MONTHLY (Bulanan)
+  const [bookingType, setBookingType] = useState<BookingType>('REGULAR');
+
+  // Common form states
   const [selectedCourtId, setSelectedCourtId] = useState<string>(
     initialCourtId || activeCourts[0]?.id || ''
   );
   const [selectedSlotId, setSelectedSlotId] = useState<string>(initialSlotId || '');
-
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Regular Booking states
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate || getTodayString(0));
+
+  // Monthly Booking states
+  const defaultStartDate = useMemo(() => getTodayString(1), []);
+  const defaultEndDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dt = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dt}`;
+  }, []);
+
+  const [monthlyStartDate, setMonthlyStartDate] = useState<string>(defaultStartDate);
+  const [monthlyEndDate, setMonthlyEndDate] = useState<string>(defaultEndDate);
+  const [monthlySelectedDays, setMonthlySelectedDays] = useState<number[]>([1]); // default: Senin
+
+  // Auto-invoice state
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [invoiceBooking, setInvoiceBooking] = useState<Booking | null>(null);
+  const [invoiceMonthly, setInvoiceMonthly] = useState<MonthlyBookingGroup | null>(null);
 
   // Sync initial props when modal opens
   useEffect(() => {
@@ -78,7 +130,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const selectedCourt = activeCourts.find((c) => c.id === selectedCourtId);
   const selectedSlot = activeSlots.find((s) => s.id === selectedSlotId);
 
-  // Calculate availability of slots for the chosen date and court
+  // Calculate availability of slots for REGULAR chosen date and court
   const slotAvailabilityMap = useMemo(() => {
     const map: Record<string, boolean> = {};
     if (!selectedCourtId || !selectedDate) return map;
@@ -96,22 +148,64 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     return map;
   }, [selectedDate, selectedCourtId, activeSlots, bookings]);
 
-  // If currently selected slot becomes unavailable on court or date switch, clear it
+  // If currently selected slot becomes unavailable in REGULAR mode, reset it
   useEffect(() => {
-    if (selectedSlotId && slotAvailabilityMap[selectedSlotId] === false) {
+    if (bookingType === 'REGULAR' && selectedSlotId && slotAvailabilityMap[selectedSlotId] === false) {
       setSelectedSlotId('');
     }
-  }, [selectedDate, selectedCourtId, slotAvailabilityMap, selectedSlotId]);
+  }, [selectedDate, selectedCourtId, slotAvailabilityMap, selectedSlotId, bookingType]);
 
-  if (!isOpen) return null;
+  // Generate monthly dates preview
+  const monthlyDates = useMemo(() => {
+    if (bookingType !== 'MONTHLY') return [];
+    return generateMonthlyDates(monthlyStartDate, monthlyEndDate, monthlySelectedDays);
+  }, [bookingType, monthlyStartDate, monthlyEndDate, monthlySelectedDays]);
+
+  // Real-time monthly conflict checker
+  const monthlyAvailability = useMemo(() => {
+    if (bookingType !== 'MONTHLY' || !selectedCourtId || !selectedSlotId || monthlyDates.length === 0) {
+      return null;
+    }
+    return store.checkMonthlyBookingAvailability(
+      monthlyStartDate,
+      monthlyEndDate,
+      selectedCourtId,
+      selectedSlotId,
+      monthlySelectedDays
+    );
+  }, [bookingType, monthlyStartDate, monthlyEndDate, selectedCourtId, selectedSlotId, monthlySelectedDays, monthlyDates]);
+
+  // Selected days labels
+  const selectedDaysLabels = useMemo(() => {
+    return monthlySelectedDays
+      .map((d) => DAYS_OF_WEEK.find((item) => item.index === d)?.label || '')
+      .filter(Boolean);
+  }, [monthlySelectedDays]);
+
+  const toggleDayOfWeek = (dayIdx: number) => {
+    setMonthlySelectedDays((prev) => {
+      if (prev.includes(dayIdx)) {
+        if (prev.length === 1) return prev; // Keep at least one day
+        return prev.filter((d) => d !== dayIdx);
+      } else {
+        return [...prev, dayIdx].sort();
+      }
+    });
+  };
 
   // Price calculations
-  const totalAmount = selectedCourt ? selectedCourt.hourlyRate : settings.defaultHourlyRate;
-  const depositMin = Math.round(totalAmount * 0.5);
+  const hourlyRate = selectedCourt ? selectedCourt.hourlyRate : settings.defaultHourlyRate;
+  const regularTotal = hourlyRate;
+  const regularDeposit = Math.round(regularTotal * 0.5);
 
-  const handleSubmitBooking = (e: React.FormEvent) => {
-    e.preventDefault();
+  const monthlySessionCount = monthlyDates.length;
+  const monthlyTotal = hourlyRate * monthlySessionCount;
+  const monthlyDeposit = Math.round(monthlyTotal * 0.5);
 
+  if (!isOpen && !showInvoice) return null;
+
+  // Handle submit regular booking
+  const handleSubmitRegular = () => {
     if (!selectedDate) {
       error('Pilih Tanggal', 'Silakan tentukan tanggal booking terlebih dahulu.');
       return;
@@ -136,7 +230,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      // 1. STRICT ANTI-DOUBLE BOOKING VALIDATION VIA STORE
+      // 1. STRICT ANTI-DOUBLE BOOKING CHECK
       const availabilityCheck = store.checkSlotAvailability(
         selectedDate,
         selectedCourt.id,
@@ -146,7 +240,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
       if (!availabilityCheck.isAvailable) {
         error(
           'Jadwal Sudah Terisi',
-          availabilityCheck.message || 'Slot baru saja dibooking oleh pemain lain. Silakan pilih slot atau jam lainnya.'
+          availabilityCheck.message || 'Slot baru saja dibooking oleh pemain lain. Silakan pilih slot lain.'
         );
         setIsSubmitting(false);
         return;
@@ -160,12 +254,13 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         date: selectedDate,
         timeSlotId: selectedSlot.id,
         durationHours: 1,
-        totalAmount,
-        depositAmount: depositMin,
+        totalAmount: regularTotal,
+        depositAmount: regularDeposit,
         bookingStatus: 'PENDING',
         paymentMethod: 'TRANSFER',
         notes: customerNotes.trim() || undefined,
         source: 'public_whatsapp',
+        bookingType: 'REGULAR',
       });
 
       if (!createResult.success || !createResult.booking) {
@@ -174,7 +269,9 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         return;
       }
 
-      // 3. GENERATE WHATSAPP URL
+      const createdBooking = createResult.booking;
+
+      // 3. GENERATE WHATSAPP URL (+6281803716514)
       const waUrl = generateBookingWhatsAppUrl({
         settings,
         customerName: customerName.trim(),
@@ -182,273 +279,612 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         courtName: selectedCourt.name,
         date: selectedDate,
         timeSlotLabel: selectedSlot.label,
-        totalAmount,
+        durationHours: 1,
+        totalAmount: regularTotal,
+        depositAmount: regularDeposit,
         notes: customerNotes.trim(),
-        bookingCode: createResult.booking.bookingCode,
+        bookingCode: createdBooking.bookingCode,
+        bookingType: 'REGULAR',
       });
 
-      // 4. NOTIFY SUCCESS & OPEN WHATSAPP
-      success(
-        'Booking Berhasil Dibuat!',
-        `Kode: ${createResult.booking.bookingCode}. Mengarahkan ke WhatsApp Admin untuk konfirmasi...`
-      );
-
-      // Open WhatsApp in new window
+      // 4. OPEN WHATSAPP AUTOMATICALLY
       window.open(waUrl, '_blank');
 
-      // Refresh parent state
-      if (onBookingSubmitted) {
-        onBookingSubmitted();
-      }
+      // 5. SHOW INVOICE AUTOMATICALLY
+      setInvoiceBooking(createdBooking);
+      setInvoiceMonthly(null);
+      setShowInvoice(true);
 
-      // Reset & close modal
-      onClose();
+      success(
+        'Booking Berhasil Dibuat!',
+        `Kode: ${createdBooking.bookingCode}. Ringkasan invoice telah dibuat.`
+      );
+
+      if (onBookingSubmitted) onBookingSubmitted();
     } catch (err) {
       console.error('Booking submission error:', err);
-      error('Kesalahan Sistem', 'Terjadi masalah teknis saat memproses booking Anda.');
+      error('Kesalahan Sistem', 'Terjadi masalah teknis saat memproses booking.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Handle submit monthly booking
+  const handleSubmitMonthly = () => {
+    if (!selectedCourt) {
+      error('Pilih Lapangan', 'Silakan pilih lapangan badminton.');
+      return;
+    }
+    if (!selectedSlot) {
+      error('Pilih Sesi Jam', 'Silakan pilih jam bermain rutin.');
+      return;
+    }
+    if (monthlySelectedDays.length === 0) {
+      error('Pilih Hari', 'Silakan pilih minimal 1 hari dalam seminggu.');
+      return;
+    }
+    if (monthlyDates.length === 0) {
+      error('Jadwal Kosong', 'Tidak ada tanggal yang cocok dalam rentang periode.');
+      return;
+    }
+    if (!customerName.trim()) {
+      error('Nama Lengkap Wajib', 'Masukkan nama pemesan / nama komunitas.');
+      return;
+    }
+    if (!customerPhone.trim() || customerPhone.replace(/[^0-9]/g, '').length < 8) {
+      error('Nomor WhatsApp Tidak Valid', 'Masukkan nomor WhatsApp aktif (minimal 8 digit).');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 1. Check conflicts
+      const check = store.checkMonthlyBookingAvailability(
+        monthlyStartDate,
+        monthlyEndDate,
+        selectedCourt.id,
+        selectedSlot.id,
+        monthlySelectedDays
+      );
+
+      if (!check.isAvailable) {
+        error(
+          'Jadwal Bentrok!',
+          `Terdapat ${check.conflictingDates.length} sesi yang bentrok dengan booking lain. Silakan periksa daftar jadwal bentrok di bawah.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Format period label
+      const sObj = new Date(monthlyStartDate + 'T00:00:00');
+      const eObj = new Date(monthlyEndDate + 'T00:00:00');
+      const periodLabel = `${sObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} – ${eObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+      // 2. CREATE MONTHLY BOOKING IN STORE
+      const createResult = store.createMonthlyBooking({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        courtId: selectedCourt.id,
+        startDate: monthlyStartDate,
+        endDate: monthlyEndDate,
+        periodLabel,
+        selectedDays: monthlySelectedDays,
+        selectedDaysLabels,
+        timeSlotId: selectedSlot.id,
+        totalAmount: monthlyTotal,
+        depositAmount: monthlyDeposit,
+        bookingStatus: 'PENDING',
+        paymentMethod: 'TRANSFER',
+        notes: customerNotes.trim() || undefined,
+        source: 'public_whatsapp',
+      });
+
+      if (!createResult.success || !createResult.monthlyBooking) {
+        error('Gagal Booking Bulanan', createResult.error || 'Terjadi kendala.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const createdGroup = createResult.monthlyBooking;
+
+      // 3. GENERATE WHATSAPP URL (+6281803716514)
+      const waUrl = generateMonthlyBookingWhatsAppUrl({
+        settings,
+        groupCode: createdGroup.groupCode,
+        customerName: createdGroup.customerName,
+        customerPhone: createdGroup.customerPhone,
+        courtName: createdGroup.courtName,
+        periodLabel: createdGroup.periodLabel,
+        startDate: createdGroup.startDate,
+        endDate: createdGroup.endDate,
+        selectedDaysLabels: createdGroup.selectedDaysLabels,
+        timeSlotLabel: createdGroup.timeSlotLabel,
+        sessionCount: createdGroup.sessionCount,
+        ratePerSession: createdGroup.ratePerSession,
+        totalAmount: createdGroup.totalAmount,
+        depositAmount: createdGroup.depositAmount,
+        remainingAmount: createdGroup.remainingAmount,
+        dates: createdGroup.dates,
+        notes: createdGroup.notes,
+      });
+
+      // 4. OPEN WHATSAPP AUTOMATICALLY
+      window.open(waUrl, '_blank');
+
+      // 5. SHOW INVOICE AUTOMATICALLY
+      setInvoiceMonthly(createdGroup);
+      setInvoiceBooking(null);
+      setShowInvoice(true);
+
+      success(
+        'Booking Bulanan Berhasil!',
+        `ID: ${createdGroup.groupCode}. ${createdGroup.sessionCount} sesi berhasil dipesan.`
+      );
+
+      if (onBookingSubmitted) onBookingSubmitted();
+    } catch (err) {
+      console.error('Monthly booking submission error:', err);
+      error('Kesalahan Sistem', 'Terjadi kendala saat menyimpan booking bulanan.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bookingType === 'MONTHLY') {
+      handleSubmitMonthly();
+    } else {
+      handleSubmitRegular();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-slate-900 via-emerald-950/60 to-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 font-black shadow-md">
-              <Sparkles className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-white">Formulir Booking Lapangan</h3>
-              <p className="text-xs text-emerald-400 font-medium">
-                {settings.gorName || settings.name} &bull; Konfirmasi Instan WhatsApp
-              </p>
-            </div>
-          </div>
+    <>
+      {/* Auto Invoice Modal View */}
+      <InvoiceModal
+        isOpen={showInvoice}
+        onClose={() => {
+          setShowInvoice(false);
+          onClose();
+        }}
+        booking={invoiceBooking}
+        monthlyBooking={invoiceMonthly}
+        settings={settings}
+      />
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label="Tutup modal booking"
+      {/* Main Booking Modal Form */}
+      {isOpen && !showInvoice && (
+        <div
+          id="public-booking-modal-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto"
+        >
+          <div
+            id="public-booking-modal-container"
+            className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body - Scrollable */}
-        <form onSubmit={handleSubmitBooking} className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200">
-          {/* Step 1: Tanggal Main */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-emerald-400" />
-              <span>1. Tanggal Bermain</span>
-            </label>
-            <input
-              type="date"
-              min={getTodayString(0)}
-              max={getTodayString(30)}
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-hidden focus:border-emerald-500"
-              required
-            />
-          </div>
-
-          {/* Step 2: Pilih Lapangan */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-emerald-400" />
-              <span>2. Pilih Lapangan Badminton</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {activeCourts.map((court) => {
-                const isSelected = selectedCourtId === court.id;
-                return (
-                  <button
-                    type="button"
-                    key={court.id}
-                    onClick={() => setSelectedCourtId(court.id)}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                      isSelected
-                        ? 'bg-emerald-950/60 border-emerald-400 shadow-md shadow-emerald-950'
-                        : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-sm text-white">{court.name}</span>
-                      <span className="text-[11px] font-mono text-emerald-400">{court.code}</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-xs">
-                      <span className="text-slate-400 truncate max-w-[120px]">
-                        {court.surfaceType || 'Vinyl BWF 5.0mm'}
-                      </span>
-                      <span className="font-bold text-white">{formatRupiah(court.hourlyRate)}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Step 3: Pilih Sesi Jam (Real-time availability checked from database) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-emerald-400" />
-                <span>3. Pilih Sesi Jam (Tersedia / Terisi)</span>
-              </label>
-              <span className="text-[11px] text-emerald-400 font-semibold">
-                Waktu Lokal WIB
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1 border border-slate-800/80 rounded-2xl bg-slate-950">
-              {activeSlots.map((slot) => {
-                const isAvailable = slotAvailabilityMap[slot.id] !== false;
-                const isSelected = selectedSlotId === slot.id;
-
-                if (!isAvailable) {
-                  return (
-                    <div
-                      key={slot.id}
-                      title="Slot jam ini sudah terisi oleh pemain lain"
-                      className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-500 flex flex-col items-center justify-center cursor-not-allowed select-none opacity-60"
-                    >
-                      <span className="font-mono text-xs font-semibold">{slot.label}</span>
-                      <span className="text-[10px] text-rose-400 font-bold uppercase mt-0.5">Terisi</span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <button
-                    type="button"
-                    key={slot.id}
-                    onClick={() => setSelectedSlotId(slot.id)}
-                    className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                      isSelected
-                        ? 'bg-emerald-600 border-emerald-300 text-slate-950 font-bold shadow-md'
-                        : 'bg-slate-900 hover:bg-slate-850 border-slate-700/80 text-white hover:border-emerald-500/50'
-                    }`}
-                  >
-                    <span className="font-mono text-xs font-bold">{slot.label}</span>
-                    <span
-                      className={`text-[10px] font-bold uppercase mt-0.5 ${
-                        isSelected ? 'text-slate-950' : 'text-emerald-400'
-                      }`}
-                    >
-                      {isSelected ? '✓ Dipilih' : 'Tersedia'}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {!selectedSlotId && (
-              <p className="text-[11px] text-amber-400">
-                * Silakan klik salah satu sesi jam yang berstatus "Tersedia" di atas.
-              </p>
-            )}
-          </div>
-
-          {/* Step 4: Data Pemesan */}
-          <div className="space-y-3 pt-2 border-t border-slate-800">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <User className="w-4 h-4 text-emerald-400" />
-              <span>4. Data Kontak Pemesan</span>
-            </h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs text-slate-400">Nama Lengkap *</label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Kevin Sanjaya"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
-                  required
-                />
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-emerald-950/60 to-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 font-black shadow-md">
+                  <Sparkles className="w-5 h-5 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Booking Lapangan Badminton</h3>
+                  <p className="text-xs text-emerald-400 font-medium">
+                    {settings.gorName || settings.name} &bull; WhatsApp: +{settings.adminWhatsApp || '6281803716514'}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs text-slate-400">Nomor WhatsApp Aktif *</label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+              <button
+                id="close-booking-modal-btn"
+                onClick={onClose}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Tutup modal booking"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body - Scrollable */}
+            <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200">
+              {/* TAB TOGGLE: Booking Reguler vs Booking Bulanan */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Pilih Jenis Booking:
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-950 border border-slate-800 rounded-2xl">
+                  <button
+                    type="button"
+                    id="toggle-regular-booking"
+                    onClick={() => setBookingType('REGULAR')}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      bookingType === 'REGULAR'
+                        ? 'bg-emerald-600 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <span>🏸</span>
+                    <span>Booking Reguler (Harian)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="toggle-monthly-booking"
+                    onClick={() => setBookingType('MONTHLY')}
+                    className={`py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      bookingType === 'MONTHLY'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-950'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                    }`}
+                  >
+                    <CalendarDays className="w-4 h-4" />
+                    <span>Booking Bulanan (Member)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* IF REGULAR: Step 1 = Single Date */}
+              {bookingType === 'REGULAR' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-emerald-400" />
+                    <span>1. Tanggal Bermain</span>
+                  </label>
                   <input
-                    type="tel"
-                    placeholder="Contoh: 08123456789"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                    type="date"
+                    id="regular-date-input"
+                    min={getTodayString(0)}
+                    max={getTodayString(45)}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-hidden focus:border-emerald-500"
                     required
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-slate-400">Catatan Tambahan (Opsional)</label>
-              <input
-                type="text"
-                placeholder="Contoh: Sparring komunitas kantor / butuh sewa raket 2 pcs"
-                value={customerNotes}
-                onChange={(e) => setCustomerNotes(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
-              />
-            </div>
-          </div>
-
-          {/* Step 5: Ringkasan Biaya & Info Transfer */}
-          <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
-              <span className="text-slate-400">Total Biaya Sewa (1 Sesi):</span>
-              <span className="text-base font-black text-white">{formatRupiah(totalAmount)}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
-              <span>Minimal Uang Muka (DP 50%):</span>
-              <span>{formatRupiah(depositMin)}</span>
-            </div>
-
-            <div className="pt-2 text-[11px] text-slate-400 leading-relaxed space-y-1">
-              <div className="font-semibold text-slate-300">Rekening Transfer Manual:</div>
-              {settings.bankAccounts && settings.bankAccounts.length > 0 ? (
-                settings.bankAccounts.map((acc, i) => (
-                  <div key={i} className="font-mono text-emerald-300">
-                    &bull; {acc.bankName}: {acc.accountNumber} (a/n {acc.accountHolder})
-                  </div>
-                ))
-              ) : (
-                <div className="font-mono text-emerald-300">{settings.bankInfo}</div>
               )}
-              <p className="text-slate-500 italic mt-1">
-                Kirim bukti transfer ke WhatsApp admin kami setelah menekan tombol di bawah.
-              </p>
-            </div>
-          </div>
 
-          {/* Modal Footer Actions */}
-          <div className="pt-2 flex items-center justify-end gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              Batal
-            </button>
+              {/* IF MONTHLY: Step 1 = Periode & Pola Hari */}
+              {bookingType === 'MONTHLY' && (
+                <div className="space-y-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-900/40">
+                  <div className="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wider">
+                    <Repeat className="w-4 h-4 text-purple-400" />
+                    <span>1. Periode & Pola Hari Rutin Bulanan</span>
+                  </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || !selectedSlotId}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-              <span>{isSubmitting ? 'Memproses...' : 'Kirim Booking via WhatsApp'}</span>
-            </button>
+                  {/* Date range */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-300">Tanggal Mulai *</label>
+                      <input
+                        type="date"
+                        id="monthly-start-date"
+                        min={getTodayString(0)}
+                        value={monthlyStartDate}
+                        onChange={(e) => setMonthlyStartDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-purple-800/60 rounded-xl px-3.5 py-2 text-sm text-white focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-300">Tanggal Selesai *</label>
+                      <input
+                        type="date"
+                        id="monthly-end-date"
+                        min={monthlyStartDate}
+                        value={monthlyEndDate}
+                        onChange={(e) => setMonthlyEndDate(e.target.value)}
+                        className="w-full bg-slate-950 border border-purple-800/60 rounded-xl px-3.5 py-2 text-sm text-white focus:border-purple-500"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Day of Week Selector */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-slate-300">
+                        Pilih Hari Bermain Rutin: <span className="text-purple-300 font-semibold">{selectedDaysLabels.join(', ')}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setMonthlySelectedDays([1, 2, 3, 4, 5])}
+                        className="text-[11px] text-purple-400 hover:text-purple-300 underline"
+                      >
+                        Hari Kerja
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS_OF_WEEK.map((d) => {
+                        const isSelected = monthlySelectedDays.includes(d.index);
+                        return (
+                          <button
+                            type="button"
+                            key={d.index}
+                            onClick={() => toggleDayOfWeek(d.index)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
+                                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            {d.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sessions preview badge */}
+                  <div className="text-xs text-purple-300 flex items-center justify-between pt-1 border-t border-purple-900/30">
+                    <span>Total Sesi Dihasilkan:</span>
+                    <span className="font-bold text-sm text-purple-200">
+                      {monthlySessionCount} Sesi Pertemuan
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Pilih Lapangan */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-emerald-400" />
+                  <span>2. Pilih Lapangan Badminton</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {activeCourts.map((court) => {
+                    const isSelected = selectedCourtId === court.id;
+                    return (
+                      <button
+                        type="button"
+                        key={court.id}
+                        onClick={() => setSelectedCourtId(court.id)}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-emerald-950/60 border-emerald-400 shadow-md shadow-emerald-950'
+                            : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-sm text-white">{court.name}</span>
+                          <span className="text-[11px] font-mono text-emerald-400">{court.code}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-xs">
+                          <span className="text-slate-400 truncate max-w-[120px]">
+                            {court.surfaceType || 'Vinyl BWF 5.0mm'}
+                          </span>
+                          <span className="font-bold text-white">{formatRupiah(court.hourlyRate)}/jam</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 3: Pilih Sesi Jam */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-emerald-400" />
+                    <span>3. Pilih Sesi Jam {bookingType === 'MONTHLY' ? 'Rutin' : '(Tersedia / Terisi)'}</span>
+                  </label>
+                  <span className="text-[11px] text-emerald-400 font-semibold">
+                    WIB
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1 border border-slate-800/80 rounded-2xl bg-slate-950">
+                  {activeSlots.map((slot) => {
+                    const isAvailable =
+                      bookingType === 'MONTHLY' ? true : slotAvailabilityMap[slot.id] !== false;
+                    const isSelected = selectedSlotId === slot.id;
+
+                    if (!isAvailable) {
+                      return (
+                        <div
+                          key={slot.id}
+                          title="Slot jam ini sudah terisi"
+                          className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-500 flex flex-col items-center justify-center cursor-not-allowed select-none opacity-60"
+                        >
+                          <span className="font-mono text-xs font-semibold">{slot.label}</span>
+                          <span className="text-[10px] text-rose-400 font-bold uppercase mt-0.5">Terisi</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        type="button"
+                        key={slot.id}
+                        onClick={() => setSelectedSlotId(slot.id)}
+                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                          isSelected
+                            ? bookingType === 'MONTHLY'
+                              ? 'bg-purple-600 border-purple-300 text-white font-bold shadow-md'
+                              : 'bg-emerald-600 border-emerald-300 text-slate-950 font-bold shadow-md'
+                            : 'bg-slate-900 hover:bg-slate-850 border-slate-700/80 text-white hover:border-emerald-500/50'
+                        }`}
+                      >
+                        <span className="font-mono text-xs font-bold">{slot.label}</span>
+                        <span
+                          className={`text-[10px] font-bold uppercase mt-0.5 ${
+                            isSelected
+                              ? bookingType === 'MONTHLY'
+                                ? 'text-white'
+                                : 'text-slate-950'
+                              : 'text-emerald-400'
+                          }`}
+                        >
+                          {isSelected ? '✓ Dipilih' : 'Pilih Sesi'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* MONTHLY CONFLICT CHECK WARNING DISPLAY */}
+              {bookingType === 'MONTHLY' && monthlyAvailability && (
+                <div>
+                  {!monthlyAvailability.isAvailable ? (
+                    <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-800/80 space-y-2">
+                      <div className="flex items-center gap-2 text-rose-300 font-bold text-xs">
+                        <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>⚠️ Beberapa jadwal tidak tersedia ({monthlyAvailability.conflictingDates.length} sesi bentrok):</span>
+                      </div>
+                      <p className="text-[11px] text-rose-200/80">
+                        Jadwal berikut sudah dibooking oleh pemain lain. Silakan ubah hari, jam sesi, atau pilih lapangan lain:
+                      </p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                        {monthlyAvailability.conflictingDates.map((c, i) => (
+                          <div
+                            key={i}
+                            className="p-1.5 rounded-lg bg-rose-900/40 text-[11px] text-rose-100 flex items-center justify-between"
+                          >
+                            <span>• {c.formattedDate} — {c.courtName} — {c.timeSlotLabel}</span>
+                            <span className="text-[10px] font-mono text-rose-300 uppercase">{c.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 flex items-center gap-2 text-emerald-300 text-xs">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>
+                        ✓ Semua <strong>{monthlyAvailability.totalDatesCount} sesi</strong> tersedia! Jadwal: Setiap {selectedDaysLabels.join(' & ')} pukul {selectedSlot?.label}.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 4: Data Pemesan */}
+              <div className="space-y-3 pt-2 border-t border-slate-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-emerald-400" />
+                  <span>4. Data Kontak Pemesan / Komunitas</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-400">Nama Customer / Komunitas *</label>
+                    <input
+                      type="text"
+                      id="customer-name-input"
+                      placeholder="Contoh: Kevin Sanjaya / PB Smash"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs text-slate-400">Nomor WhatsApp Aktif *</label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <input
+                        type="tel"
+                        id="customer-phone-input"
+                        placeholder="Contoh: 08123456789"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-400">Catatan Tambahan (Opsional)</label>
+                  <input
+                    type="text"
+                    id="customer-notes-input"
+                    placeholder="Contoh: Sparring rutin / butuh sewa raket 2 pcs"
+                    value={customerNotes}
+                    onChange={(e) => setCustomerNotes(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Step 5: Ringkasan Biaya & Info Transfer */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
+                  <span className="text-slate-400">
+                    Total Biaya Sewa ({bookingType === 'MONTHLY' ? `${monthlySessionCount} Sesi Bulanan` : '1 Sesi Harian'}):
+                  </span>
+                  <span className="text-base font-black text-white">
+                    {formatRupiah(bookingType === 'MONTHLY' ? monthlyTotal : regularTotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-emerald-400 font-bold">
+                  <span>Minimal Uang Muka (DP 50%):</span>
+                  <span>{formatRupiah(bookingType === 'MONTHLY' ? monthlyDeposit : regularDeposit)}</span>
+                </div>
+
+                <div className="pt-2 text-[11px] text-slate-400 leading-relaxed space-y-1">
+                  <div className="font-semibold text-slate-300">Rekening Transfer Manual:</div>
+                  {settings.bankAccounts && settings.bankAccounts.length > 0 ? (
+                    settings.bankAccounts.map((acc, i) => (
+                      <div key={i} className="font-mono text-emerald-300">
+                        &bull; {acc.bankName}: {acc.accountNumber} (a/n {acc.accountHolder})
+                      </div>
+                    ))
+                  ) : (
+                    <div className="font-mono text-emerald-300">{settings.bankInfo}</div>
+                  )}
+                  <p className="text-slate-500 italic mt-1">
+                    Booking akan langsung diarahkan ke WhatsApp Admin (+{settings.adminWhatsApp || '6281803716514'}) dan Invoice otomatis diterbitkan.
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="pt-2 flex items-center justify-end gap-3 shrink-0">
+                <button
+                  type="button"
+                  id="cancel-booking-btn"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+
+                <button
+                  type="submit"
+                  id="submit-booking-wa-btn"
+                  disabled={
+                    isSubmitting ||
+                    !selectedSlotId ||
+                    (bookingType === 'MONTHLY' && (!monthlyAvailability || !monthlyAvailability.isAvailable))
+                  }
+                  className={`px-6 py-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    bookingType === 'MONTHLY'
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white shadow-purple-500/25'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-500/25'
+                  }`}
+                >
+                  <Send className="w-4 h-4" />
+                  <span>
+                    {isSubmitting
+                      ? 'Memproses...'
+                      : bookingType === 'MONTHLY'
+                      ? 'Booking Bulanan via WhatsApp'
+                      : 'Kirim Booking via WhatsApp'}
+                  </span>
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 };
+

@@ -1,9 +1,11 @@
 import {
   Booking,
   BookingStatus,
+  BookingType,
   BusinessSettings,
   Court,
   Customer,
+  MonthlyBookingGroup,
   PaymentMethod,
   PaymentStatus,
   TimeSlot,
@@ -17,6 +19,7 @@ const STORAGE_KEYS = {
   SLOTS: 'gor_slots_v1',
   CUSTOMERS: 'gor_customers_v1',
   BOOKINGS: 'gor_bookings_v1',
+  MONTHLY_BOOKINGS: 'gor_monthly_bookings_v1',
   TRANSACTIONS: 'gor_transactions_v1',
   USERS: 'gor_users_v1',
   CURRENT_USER: 'gor_current_user_v1',
@@ -27,7 +30,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   name: 'GOR Badminton Smash Arena',
   tagline: 'Pusat Rental Lapangan Badminton Terbaik & Nyaman',
   address: 'Jl. Pemuda Olahraga No. 88, Rawamangun, Jakarta Timur',
-  adminWhatsApp: '6281298765432',
+  adminWhatsApp: '6281803716514',
   operatingHours: '08:00 - 22:00 WIB (Setiap Hari)',
   aboutText:
     'GOR Badminton Smash Arena hadir dengan 4 lapangan berstandar internasional BWF, menggunakan karpet vinyl tebal 5.0mm yang empuk di lutut, pencahayaan LED 500+ lux anti-silau, serta sirkulasi udara yang sejuk untuk pengalaman bermain optimal.',
@@ -181,6 +184,44 @@ export function formatRupiah(amount: number): string {
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/**
+ * Generates all dates (YYYY-MM-DD) between startDate and endDate
+ * filtered by selected day-of-week indices (0=Sunday, 1=Monday, ..., 6=Saturday).
+ * If selectedDays is empty, all dates in range are returned.
+ */
+export function generateMonthlyDates(
+  startDate: string,
+  endDate: string,
+  selectedDays: number[] = []
+): string[] {
+  const dates: string[] = [];
+  try {
+    if (!startDate || !endDate) return [];
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59');
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return [];
+    }
+
+    const cur = new Date(start);
+    let guard = 0;
+    while (cur <= end && guard < 120) {
+      const dayOfWeek = cur.getDay();
+      if (selectedDays.length === 0 || selectedDays.includes(dayOfWeek)) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        dates.push(`${y}-${m}-${d}`);
+      }
+      cur.setDate(cur.getDate() + 1);
+      guard++;
+    }
+  } catch (e) {
+    console.error('Error generating monthly dates:', e);
+  }
+  return dates;
 }
 
 // Initial Bookings
@@ -493,7 +534,11 @@ class StorageService {
 
   // Business Settings
   getSettings(): BusinessSettings {
-    return this.get<BusinessSettings>(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+    const s = this.get<BusinessSettings>(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
+    if (!s.adminWhatsApp || s.adminWhatsApp === '6281298765432') {
+      s.adminWhatsApp = '6281803716514';
+    }
+    return s;
   }
 
   updateSettings(settings: Partial<BusinessSettings>): BusinessSettings {
@@ -727,6 +772,8 @@ class StorageService {
       paymentMethod?: PaymentMethod;
       notes?: string;
       source?: 'public_whatsapp' | 'admin_manual';
+      bookingType?: BookingType;
+      monthlyGroupId?: string;
     }
   ): { success: boolean; booking?: Booking; error?: string } {
     // 1. STRICT ANTI DOUBLE BOOKING VALIDATION
@@ -796,6 +843,8 @@ class StorageService {
       notes: bookingInput.notes || '',
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
       source: bookingInput.source || 'admin_manual',
+      bookingType: bookingInput.bookingType || 'REGULAR',
+      monthlyGroupId: bookingInput.monthlyGroupId,
     };
 
     bookings.push(newBooking);
@@ -892,6 +941,425 @@ class StorageService {
     if (filtered.length === bookings.length) return false;
     this.saveBookings(filtered);
     return true;
+  }
+
+  // ==========================================
+  // MONTHLY / RECURRING BOOKING ENGINE
+  // ==========================================
+
+  getMonthlyBookings(): MonthlyBookingGroup[] {
+    return this.get<MonthlyBookingGroup[]>(STORAGE_KEYS.MONTHLY_BOOKINGS, []);
+  }
+
+  saveMonthlyBookings(groups: MonthlyBookingGroup[]): void {
+    this.set(STORAGE_KEYS.MONTHLY_BOOKINGS, groups);
+  }
+
+  checkMonthlyBookingAvailability(
+    startDate: string,
+    endDate: string,
+    courtId: string,
+    timeSlotId: string,
+    selectedDays: number[],
+    excludeGroupId?: string
+  ): {
+    isAvailable: boolean;
+    dates: string[];
+    conflictingDates: {
+      date: string;
+      formattedDate: string;
+      courtName: string;
+      timeSlotLabel: string;
+      reason: string;
+    }[];
+    availableDatesCount: number;
+    totalDatesCount: number;
+    message?: string;
+  } {
+    const dates = generateMonthlyDates(startDate, endDate, selectedDays);
+    if (dates.length === 0) {
+      return {
+        isAvailable: false,
+        dates: [],
+        conflictingDates: [],
+        availableDatesCount: 0,
+        totalDatesCount: 0,
+        message: 'Tidak ada tanggal yang cocok dalam rentang dan pola hari yang dipilih.',
+      };
+    }
+
+    const courts = this.getCourts();
+    const court = courts.find((c) => c.id === courtId);
+    if (!court) {
+      return {
+        isAvailable: false,
+        dates,
+        conflictingDates: [],
+        availableDatesCount: 0,
+        totalDatesCount: dates.length,
+        message: 'Lapangan tidak ditemukan.',
+      };
+    }
+
+    const slots = this.getTimeSlots();
+    const slot = slots.find((s) => s.id === timeSlotId);
+    if (!slot || !slot.active) {
+      return {
+        isAvailable: false,
+        dates,
+        conflictingDates: [],
+        availableDatesCount: 0,
+        totalDatesCount: dates.length,
+        message: 'Sesi jam tidak aktif.',
+      };
+    }
+
+    const conflictingDates: {
+      date: string;
+      formattedDate: string;
+      courtName: string;
+      timeSlotLabel: string;
+      reason: string;
+    }[] = [];
+
+    const bookings = this.getBookings();
+
+    for (const d of dates) {
+      let formattedDate = d;
+      try {
+        const [y, m, dt] = d.split('-').map(Number);
+        const obj = new Date(y, m - 1, dt);
+        formattedDate = obj.toLocaleDateString('id-ID', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        });
+      } catch {
+        formattedDate = d;
+      }
+
+      const conflict = bookings.find(
+        (b) =>
+          b.date === d &&
+          b.courtId === courtId &&
+          b.timeSlotId === timeSlotId &&
+          b.bookingStatus !== 'CANCELLED' &&
+          (!excludeGroupId || b.monthlyGroupId !== excludeGroupId)
+      );
+
+      if (conflict) {
+        conflictingDates.push({
+          date: d,
+          formattedDate,
+          courtName: court.name,
+          timeSlotLabel: slot.label,
+          reason: `Sudah dibooking (${conflict.bookingCode} - ${conflict.customerName})`,
+        });
+      }
+    }
+
+    if (conflictingDates.length > 0) {
+      return {
+        isAvailable: false,
+        dates,
+        conflictingDates,
+        availableDatesCount: dates.length - conflictingDates.length,
+        totalDatesCount: dates.length,
+        message: `Terdapat ${conflictingDates.length} sesi dari total ${dates.length} sesi yang bentrok dengan jadwal lain.`,
+      };
+    }
+
+    return {
+      isAvailable: true,
+      dates,
+      conflictingDates: [],
+      availableDatesCount: dates.length,
+      totalDatesCount: dates.length,
+    };
+  }
+
+  createMonthlyBooking(input: {
+    customerName: string;
+    customerPhone: string;
+    courtId: string;
+    startDate: string;
+    endDate: string;
+    periodLabel?: string;
+    selectedDays: number[];
+    selectedDaysLabels: string[];
+    timeSlotId: string;
+    totalAmount?: number;
+    depositAmount?: number;
+    bookingStatus?: BookingStatus;
+    paymentMethod?: PaymentMethod;
+    notes?: string;
+    source?: 'public_whatsapp' | 'admin_manual';
+  }): {
+    success: boolean;
+    monthlyBooking?: MonthlyBookingGroup;
+    bookings?: Booking[];
+    error?: string;
+    conflictingDates?: {
+      date: string;
+      formattedDate: string;
+      courtName: string;
+      timeSlotLabel: string;
+      reason: string;
+    }[];
+  } {
+    // 1. Validate availability of all recurring dates
+    const check = this.checkMonthlyBookingAvailability(
+      input.startDate,
+      input.endDate,
+      input.courtId,
+      input.timeSlotId,
+      input.selectedDays
+    );
+
+    if (!check.isAvailable) {
+      return {
+        success: false,
+        error: check.message || 'Beberapa jadwal tidak tersedia.',
+        conflictingDates: check.conflictingDates,
+      };
+    }
+
+    const { dates } = check;
+
+    // 2. Resolve or create Customer
+    const customer = this.findOrCreateCustomer(
+      input.customerName,
+      input.customerPhone,
+      input.notes
+    );
+
+    // 3. Resolve Court & Slot
+    const courts = this.getCourts();
+    const court = courts.find((c) => c.id === input.courtId)!;
+    const slots = this.getTimeSlots();
+    const slot = slots.find((s) => s.id === input.timeSlotId)!;
+
+    const sessionCount = dates.length;
+    const ratePerSession = court.hourlyRate;
+    const totalAmount = input.totalAmount ?? sessionCount * ratePerSession;
+    const depositAmount = input.depositAmount ?? Math.round(totalAmount * 0.5);
+    const remainingAmount = Math.max(0, totalAmount - depositAmount);
+
+    let paymentStatus: PaymentStatus = 'BELUM BAYAR';
+    if (depositAmount >= totalAmount && totalAmount > 0) {
+      paymentStatus = 'LUNAS';
+    } else if (depositAmount > 0) {
+      paymentStatus = 'DP';
+    }
+
+    const bookingStatus: BookingStatus =
+      input.bookingStatus || (depositAmount > 0 ? 'CONFIRMED' : 'PENDING');
+
+    const groupId = `mbkg-${Date.now()}`;
+    const dateCode = input.startDate.replace(/-/g, '').substring(2, 6);
+    const randomCode = Math.floor(100 + Math.random() * 900);
+    const groupCode = `MBKG-${dateCode}-${randomCode}`;
+
+    const periodLabel =
+      input.periodLabel || `${input.startDate} s/d ${input.endDate}`;
+
+    // 4. Create individual Booking records for every recurring date session
+    const allBookings = this.getBookings();
+    const createdBookings: Booking[] = [];
+    const bookingIds: string[] = [];
+
+    const perSessionTotal = Math.round(totalAmount / sessionCount);
+    const perSessionDeposit = Math.round(depositAmount / sessionCount);
+    const perSessionRemaining = Math.max(0, perSessionTotal - perSessionDeposit);
+
+    dates.forEach((d, idx) => {
+      const bkgId = `bkg-${Date.now()}-${idx + 1}`;
+      const bkgCode = `${groupCode}-S${String(idx + 1).padStart(2, '0')}`;
+      bookingIds.push(bkgId);
+
+      const bkg: Booking = {
+        id: bkgId,
+        bookingCode: bkgCode,
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        courtId: court.id,
+        courtName: court.name,
+        date: d,
+        timeSlotId: slot.id,
+        timeSlotLabel: slot.label,
+        durationHours: 1,
+        totalAmount: perSessionTotal,
+        depositAmount: perSessionDeposit,
+        remainingAmount: perSessionRemaining,
+        bookingStatus,
+        paymentStatus,
+        paymentMethod: input.paymentMethod || 'TRANSFER',
+        notes: input.notes
+          ? `${input.notes} (Sesi ${idx + 1}/${sessionCount})`
+          : `Booking Bulanan Sesi ${idx + 1}/${sessionCount}`,
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        source: input.source || 'public_whatsapp',
+        bookingType: 'MONTHLY',
+        monthlyGroupId: groupId,
+      };
+
+      createdBookings.push(bkg);
+      allBookings.push(bkg);
+    });
+
+    this.saveBookings(allBookings);
+
+    // 5. Create and save MonthlyBookingGroup
+    const monthlyGroup: MonthlyBookingGroup = {
+      id: groupId,
+      groupCode,
+      customerId: customer.id,
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      courtId: court.id,
+      courtName: court.name,
+      periodLabel,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      selectedDays: input.selectedDays,
+      selectedDaysLabels: input.selectedDaysLabels,
+      timeSlotId: slot.id,
+      timeSlotLabel: slot.label,
+      sessionCount,
+      ratePerSession,
+      totalAmount,
+      depositAmount,
+      remainingAmount,
+      bookingStatus,
+      paymentStatus,
+      paymentMethod: input.paymentMethod || 'TRANSFER',
+      notes: input.notes || '',
+      bookingIds,
+      dates,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    };
+
+    const monthlyGroups = this.getMonthlyBookings();
+    monthlyGroups.unshift(monthlyGroup);
+    this.saveMonthlyBookings(monthlyGroups);
+
+    // 6. Record financial transaction for monthly booking
+    if (depositAmount > 0 || paymentStatus === 'LUNAS') {
+      const transactions = this.getTransactions();
+      const count = transactions.length + 1;
+      const dateStr = input.startDate.replace(/-/g, '');
+      const newTrx: Transaction = {
+        id: `trx-${Date.now()}`,
+        transactionNumber: `TRX-${dateStr}-${String(count).padStart(3, '0')}`,
+        bookingId: groupId,
+        bookingCode: groupCode,
+        customerId: customer.id,
+        customerName: customer.name,
+        courtName: court.name,
+        timeSlotLabel: `${input.selectedDaysLabels.join(' & ')} (${slot.label})`,
+        date: input.startDate,
+        totalAmount,
+        depositAmount,
+        remainingAmount,
+        paymentMethod: input.paymentMethod || 'TRANSFER',
+        paymentStatus,
+        notes: `Booking Bulanan: ${sessionCount} Sesi`,
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      };
+      transactions.unshift(newTrx);
+      this.saveTransactions(transactions);
+    }
+
+    return {
+      success: true,
+      monthlyBooking: monthlyGroup,
+      bookings: createdBookings,
+    };
+  }
+
+  deleteMonthlyBooking(groupId: string, deleteChildBookings: boolean = true): boolean {
+    const groups = this.getMonthlyBookings();
+    const target = groups.find((g) => g.id === groupId);
+    if (!target) return false;
+
+    const filtered = groups.filter((g) => g.id !== groupId);
+    this.saveMonthlyBookings(filtered);
+
+    if (deleteChildBookings) {
+      const bookings = this.getBookings().filter((b) => b.monthlyGroupId !== groupId);
+      this.saveBookings(bookings);
+    }
+
+    return true;
+  }
+
+  updateMonthlyBookingStatus(
+    groupId: string,
+    updates:
+      | { bookingStatus?: BookingStatus; paymentStatus?: PaymentStatus }
+      | BookingStatus,
+    legacyPaymentStatus?: PaymentStatus
+  ): { success: boolean; group?: MonthlyBookingGroup; error?: string } {
+    const groups = this.getMonthlyBookings();
+    const index = groups.findIndex((g) => g.id === groupId);
+    if (index === -1) return { success: false, error: 'Booking bulanan tidak ditemukan.' };
+
+    const current = groups[index];
+    const newBookingStatus =
+      typeof updates === 'object'
+        ? updates.bookingStatus || current.bookingStatus
+        : updates || current.bookingStatus;
+    const newPaymentStatus =
+      typeof updates === 'object'
+        ? updates.paymentStatus || current.paymentStatus
+        : legacyPaymentStatus || current.paymentStatus;
+    const isLunas = newPaymentStatus === 'LUNAS';
+
+    const updatedGroup: MonthlyBookingGroup = {
+      ...current,
+      bookingStatus: newBookingStatus,
+      paymentStatus: newPaymentStatus,
+      depositAmount: isLunas ? current.totalAmount : current.depositAmount,
+      remainingAmount: isLunas ? 0 : current.remainingAmount,
+    };
+
+    groups[index] = updatedGroup;
+    this.saveMonthlyBookings(groups);
+
+    // Sync child bookings
+    const bookings = this.getBookings();
+    let changed = false;
+    for (let i = 0; i < bookings.length; i++) {
+      if (bookings[i].monthlyGroupId === groupId) {
+        bookings[i] = {
+          ...bookings[i],
+          bookingStatus: newBookingStatus,
+          paymentStatus: newPaymentStatus,
+          depositAmount: isLunas ? bookings[i].totalAmount : bookings[i].depositAmount,
+          remainingAmount: isLunas ? 0 : bookings[i].remainingAmount,
+        };
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.saveBookings(bookings);
+    }
+
+    // Sync transaction
+    const transactions = this.getTransactions();
+    const trxIndex = transactions.findIndex((t) => t.bookingId === groupId);
+    if (trxIndex !== -1) {
+      transactions[trxIndex] = {
+        ...transactions[trxIndex],
+        paymentStatus: newPaymentStatus,
+        depositAmount: isLunas ? updatedGroup.totalAmount : transactions[trxIndex].depositAmount,
+        remainingAmount: isLunas ? 0 : transactions[trxIndex].remainingAmount,
+      };
+      this.saveTransactions(transactions);
+    }
+
+    return { success: true, group: updatedGroup };
   }
 
   // Transactions
@@ -1082,6 +1550,7 @@ class StorageService {
         localStorage.removeItem(STORAGE_KEYS.SLOTS);
         localStorage.removeItem(STORAGE_KEYS.CUSTOMERS);
         localStorage.removeItem(STORAGE_KEYS.BOOKINGS);
+        localStorage.removeItem(STORAGE_KEYS.MONTHLY_BOOKINGS);
         localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
         localStorage.removeItem(STORAGE_KEYS.USERS);
       } catch (e) {
@@ -1095,6 +1564,7 @@ class StorageService {
     this.set(STORAGE_KEYS.CUSTOMERS, DEFAULT_CUSTOMERS);
     const initialBookings = generateInitialBookings();
     this.set(STORAGE_KEYS.BOOKINGS, initialBookings);
+    this.set(STORAGE_KEYS.MONTHLY_BOOKINGS, []);
     this.set(STORAGE_KEYS.TRANSACTIONS, generateInitialTransactions(initialBookings));
   }
 }
