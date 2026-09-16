@@ -29,12 +29,14 @@ interface AdminLayoutProps {
   currentUser: User;
   onLogout: () => void;
   onSwitchToPublic: () => void;
+  onUserUpdated?: (user: User) => void;
 }
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({
   currentUser,
   onLogout,
   onSwitchToPublic,
+  onUserUpdated,
 }) => {
   const { success, error } = useToast();
 
@@ -60,6 +62,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     setTransactions(store.getTransactions());
     setUsers(store.getUsers());
   };
+
+  // Synchronize on store events
+  useEffect(() => {
+    const handleDataChanged = () => {
+      reloadData();
+      const updatedCurrent = store.getCurrentUser();
+      if (updatedCurrent && onUserUpdated) {
+        onUserUpdated(updatedCurrent);
+      }
+    };
+    window.addEventListener('gor_data_changed', handleDataChanged);
+    return () => {
+      window.removeEventListener('gor_data_changed', handleDataChanged);
+    };
+  }, [onUserUpdated]);
 
   // Booking Modal State
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -203,6 +220,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     const currentUsers = store.getUsers();
     const updated = currentUsers.map((u) => (u.id === id ? { ...u, ...updates } : u));
     store.saveUsers(updated);
+    if (currentUser.id === id) {
+      const activeUpdated = { ...currentUser, ...updates };
+      store.setCurrentUser(activeUpdated);
+      onUserUpdated?.(activeUpdated);
+    }
     reloadData();
   };
 

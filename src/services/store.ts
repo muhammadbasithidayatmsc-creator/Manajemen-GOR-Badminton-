@@ -462,20 +462,30 @@ export function generateInitialTransactions(bookings: Booking[]): Transaction[] 
 
 // Storage Manager Class
 class StorageService {
+  private memoryCache: Record<string, unknown> = {};
+
   private get<T>(key: string, fallback: T): T {
     try {
-      const item = localStorage.getItem(key);
-      if (!item) return fallback;
-      return JSON.parse(item);
-    } catch {
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        const item = localStorage.getItem(key);
+        if (item) return JSON.parse(item);
+      }
+      if (this.memoryCache[key] !== undefined) {
+        return this.memoryCache[key] as T;
+      }
       return fallback;
+    } catch {
+      return this.memoryCache[key] !== undefined ? (this.memoryCache[key] as T) : fallback;
     }
   }
 
   private set<T>(key: string, value: T): void {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
-      window.dispatchEvent(new Event('gor_data_changed'));
+      this.memoryCache[key] = value;
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, JSON.stringify(value));
+        window.dispatchEvent(new Event('gor_data_changed'));
+      }
     } catch (e) {
       console.error('Storage error:', e);
     }
@@ -939,8 +949,9 @@ class StorageService {
         paymentMethod: booking.paymentMethod || transactions[index].paymentMethod,
       };
       this.saveTransactions(transactions);
-    } else if (booking.depositAmount > 0) {
-      this.addTransactionForBooking(booking, booking.depositAmount, booking.paymentMethod || 'CASH');
+    } else if (booking.depositAmount > 0 || booking.paymentStatus === 'LUNAS') {
+      const amount = booking.depositAmount > 0 ? booking.depositAmount : booking.totalAmount;
+      this.addTransactionForBooking(booking, amount, booking.paymentMethod || 'CASH');
     }
   }
 
@@ -1063,13 +1074,20 @@ class StorageService {
 
   // Reset to initial demo data
   resetAllData(): void {
-    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
-    localStorage.removeItem(STORAGE_KEYS.COURTS);
-    localStorage.removeItem(STORAGE_KEYS.SLOTS);
-    localStorage.removeItem(STORAGE_KEYS.CUSTOMERS);
-    localStorage.removeItem(STORAGE_KEYS.BOOKINGS);
-    localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
-    localStorage.removeItem(STORAGE_KEYS.USERS);
+    this.memoryCache = {};
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+        localStorage.removeItem(STORAGE_KEYS.COURTS);
+        localStorage.removeItem(STORAGE_KEYS.SLOTS);
+        localStorage.removeItem(STORAGE_KEYS.CUSTOMERS);
+        localStorage.removeItem(STORAGE_KEYS.BOOKINGS);
+        localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+        localStorage.removeItem(STORAGE_KEYS.USERS);
+      } catch (e) {
+        console.error('Reset storage error:', e);
+      }
+    }
     this.set(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
     this.set(STORAGE_KEYS.COURTS, DEFAULT_COURTS);
     this.set(STORAGE_KEYS.SLOTS, DEFAULT_TIME_SLOTS);
