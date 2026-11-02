@@ -348,7 +348,7 @@ https://wa.me/${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
                 <div className="flex justify-between">
                   <span className="text-slate-500">{isMonthly ? 'Jumlah Sesi' : 'Durasi'}</span>
                   <span className="font-semibold text-slate-800">
-                    {isMonthly ? `${monthlyBooking.sessionCount} Sesi Pertemuan` : `${booking!.durationHours} Jam`}
+                    {isMonthly ? `${monthlyBooking.sessionCount} Sesi Pertemuan` : `${booking?.durationHours || 1} Jam`}
                   </span>
                 </div>
               </div>

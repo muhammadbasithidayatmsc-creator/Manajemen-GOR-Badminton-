@@ -9,7 +9,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Court, TimeSlot, Booking } from '../../types';
-import { getTodayString } from '../../services/store';
+import { getTodayString, isSlotOccupiedByBooking } from '../../services/store';
 
 interface PublicQuickBookingProps {
   selectedDate: string;
@@ -83,8 +83,7 @@ export const PublicQuickBooking: React.FC<PublicQuickBookingProps> = ({
           (b) =>
             b.date === selectedDate &&
             b.courtId === court.id &&
-            b.timeSlotId === slot.id &&
-            b.bookingStatus !== 'CANCELLED'
+            isSlotOccupiedByBooking(slot, b, timeSlots)
         );
         if (!isBooked) count++;
       }

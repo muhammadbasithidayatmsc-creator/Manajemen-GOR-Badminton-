@@ -227,7 +227,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Nama GOR Badminton
                 </label>
                 <input
@@ -235,36 +235,36 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   required
                   value={formData.gorName}
                   onChange={(e) => handleChange('gorName', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Nomor WhatsApp Admin (Penerima Booking Publik)
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Phone className="w-4 h-4" />
                   </div>
                   <input
                     type="tel"
                     required
-                    placeholder="6281234567890"
+                    placeholder="6281803716514"
                     value={formData.adminWhatsApp}
                     onChange={(e) => handleChange('adminWhatsApp', e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                 Alamat Lengkap GOR
               </label>
               <div className="relative">
-                <div className="absolute top-2.5 left-3 pointer-events-none text-slate-400">
+                <div className="absolute top-3 left-3.5 pointer-events-none text-slate-500">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <textarea
@@ -272,17 +272,17 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   required
                   value={formData.address}
                   onChange={(e) => handleChange('address', e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                 Link Google Maps Lokasi GOR
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                   <ExternalLink className="w-4 h-4" />
                 </div>
                 <input
@@ -290,14 +290,14 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   placeholder="https://maps.google.com/..."
                   value={formData.googleMapsUrl || ''}
                   onChange={(e) => handleChange('googleMapsUrl', e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Jam Buka Operasional
                 </label>
                 <input
@@ -306,12 +306,12 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   placeholder="08:00 - 22:00 WIB"
                   value={formData.operatingHours}
                   onChange={(e) => handleChange('operatingHours', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Biaya Sewa Lapangan Default (per jam)
                 </label>
                 <input
@@ -321,7 +321,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   required
                   value={formData.hourlyRateDefault}
                   onChange={(e) => handleChange('hourlyRateDefault', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden font-bold"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -436,12 +436,12 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                       placeholder="BCA / Mandiri / QRIS"
                       value={bank.bankName}
                       onChange={(e) => handleBankChange(idx, 'bankName', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold bg-white"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-[#1F2937] bg-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="w-full md:flex-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
                       Nomor Rekening
                     </label>
                     <input
@@ -449,12 +449,12 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                       placeholder="Contoh: 1234567890"
                       value={bank.accountNumber}
                       onChange={(e) => handleBankChange(idx, 'accountNumber', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-bold bg-white"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-mono font-bold text-[#1F2937] bg-white placeholder:text-gray-500"
                     />
                   </div>
 
                   <div className="w-full md:flex-1">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-slate-700 uppercase mb-1">
                       Atas Nama (Pemilik)
                     </label>
                     <input
@@ -462,7 +462,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                       placeholder="Contoh: GOR Arena Badminton"
                       value={bank.accountHolder}
                       onChange={(e) => handleBankChange(idx, 'accountHolder', e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium bg-white"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-[#1F2937] bg-white placeholder:text-gray-500"
                     />
                   </div>
 
@@ -481,14 +481,14 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                 Catatan Petunjuk Pembayaran Manual
               </label>
               <textarea
                 rows={2}
                 value={formData.paymentInstructions}
                 onChange={(e) => handleChange('paymentInstructions', e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
               />
             </div>
           </div>
@@ -502,10 +502,10 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Template WhatsApp Customer (Ketika Booking di Web Publik)
                   </label>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500 font-medium">
                     Tag: [NAMA], [KODE], [LAPANGAN], [TANGGAL], [JAM], [TOTAL]
                   </span>
                 </div>
@@ -513,16 +513,16 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   rows={4}
                   value={formData.waTemplateCustomer}
                   onChange={(e) => handleChange('waTemplateCustomer', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Template Konfirmasi Admin (Kirim Notifikasi / Verifikasi)
                   </label>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500 font-medium">
                     Tag: [NAMA], [KODE], [LAPANGAN], [TANGGAL], [JAM], [STATUS], [SISA]
                   </span>
                 </div>
@@ -530,7 +530,7 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                   rows={4}
                   value={formData.waTemplateConfirmation}
                   onChange={(e) => handleChange('waTemplateConfirmation', e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -605,11 +605,11 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
             <form onSubmit={handleSaveSecurity} className="space-y-4 max-w-xl">
               {/* Username Field */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Username Login <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <UserCheck className="w-4 h-4" />
                   </div>
                   <input
@@ -618,21 +618,21 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                     value={accountUsername}
                     onChange={(e) => setAccountUsername(e.target.value)}
                     placeholder="Masukkan username baru"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm lowercase focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 lowercase focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-500 font-medium mt-1">
                   Username digunakan untuk masuk ke dashboard kasir & manajemen.
                 </p>
               </div>
 
               {/* Password Baru Field */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Password Baru
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -640,29 +640,29 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Masukkan password baru (minimal 6 karakter)"
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-700 focus:outline-hidden cursor-pointer"
                     tabIndex={-1}
                   >
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-500 font-medium mt-1">
                   Kosongkan jika Anda hanya ingin memperbarui username tanpa mengubah kata sandi.
                 </p>
               </div>
 
               {/* Konfirmasi Password Field */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
                   Konfirmasi Password Baru
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                     <Lock className="w-4 h-4" />
                   </div>
                   <input
@@ -671,12 +671,12 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Ulangi password baru Anda"
                     disabled={!newPassword}
-                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden disabled:bg-slate-100 disabled:opacity-50"
+                    className="w-full pl-10 pr-11 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden disabled:bg-slate-100 disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-700 focus:outline-hidden cursor-pointer"
                     tabIndex={-1}
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

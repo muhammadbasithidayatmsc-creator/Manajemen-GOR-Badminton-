@@ -18,7 +18,7 @@ import {
   Court,
   TimeSlot,
 } from '../../types';
-import { formatRupiah, getTodayString } from '../../services/store';
+import { formatRupiah, getTodayString, isSlotOccupiedByBooking } from '../../services/store';
 import { BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadges';
 
 interface ScheduleGridViewProps {
@@ -252,12 +252,11 @@ export const ScheduleGridView: React.FC<ScheduleGridViewProps> = ({
                         );
                       }
 
-                      // Check existing booking
+                      // Check existing booking across full multi-hour range
                       const booking = dateBookings.find(
                         (b) =>
                           b.courtId === court.id &&
-                          b.timeSlotId === slot.id &&
-                          b.bookingStatus !== 'CANCELLED'
+                          isSlotOccupiedByBooking(slot, b, timeSlots)
                       );
 
                       // If NO booking -> AVAILABLE
@@ -281,6 +280,7 @@ export const ScheduleGridView: React.FC<ScheduleGridViewProps> = ({
                       }
 
                       // If Booked -> Show Status Badge, Customer Name, and Payment Status
+                      const isStartSlot = booking.timeSlotId === slot.id;
                       return (
                         <td
                           key={court.id}
@@ -298,16 +298,23 @@ export const ScheduleGridView: React.FC<ScheduleGridViewProps> = ({
                           >
                             <div className="flex items-center justify-between gap-1 mb-1">
                               <BookingStatusBadge status={booking.bookingStatus} size="sm" />
-                              <PaymentStatusBadge status={booking.paymentStatus} size="sm" />
+                              <div className="flex items-center gap-1">
+                                {(booking.durationHours || 1) > 1 && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                    {booking.durationHours} Jam
+                                  </span>
+                                )}
+                                <PaymentStatusBadge status={booking.paymentStatus} size="sm" />
+                              </div>
                             </div>
                             <div className="font-bold text-xs truncate flex items-center gap-1 text-slate-900">
                               <User className="w-3 h-3 text-slate-400 shrink-0" />
                               <span className="truncate">{booking.customerName}</span>
                             </div>
                             <div className="text-[10px] text-slate-500 font-semibold mt-0.5 flex items-center justify-between">
-                              <span>{booking.customerPhone}</span>
-                              <span className="font-bold text-slate-700">
-                                {formatRupiah(booking.depositAmount)}
+                              <span className="truncate">{booking.customerPhone}</span>
+                              <span className="font-bold text-slate-700 shrink-0">
+                                {isStartSlot ? formatRupiah(booking.depositAmount) : '(Lanjutan)'}
                               </span>
                             </div>
                           </div>

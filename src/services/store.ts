@@ -501,6 +501,81 @@ export function generateInitialTransactions(bookings: Booking[]): Transaction[] 
   return transactions;
 }
 
+// ==========================================
+// TIME & DURATION MATHEMATICAL UTILITIES
+// ==========================================
+
+export function timeStringToMinutes(time: string): number {
+  if (!time) return 0;
+  const parts = time.split(':');
+  const h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  return h * 60 + m;
+}
+
+export function minutesToTimeString(minutes: number): string {
+  const normalized = Math.max(0, minutes);
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+export function addHoursToTime(time: string, hours: number): string {
+  const currentMinutes = timeStringToMinutes(time);
+  const addedMinutes = Math.round(hours * 60);
+  return minutesToTimeString(currentMinutes + addedMinutes);
+}
+
+/**
+ * Strict interval overlap validator
+ * Range A [startA, endA] overlaps with Range B [startB, endB] iff startA < endB AND startB < endA
+ */
+export function isTimeRangeOverlap(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string
+): boolean {
+  const aStart = timeStringToMinutes(startA);
+  const aEnd = timeStringToMinutes(endA);
+  const bStart = timeStringToMinutes(startB);
+  const bEnd = timeStringToMinutes(endB);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+export function getBookingTimeRange(
+  booking: Booking,
+  timeSlots: TimeSlot[]
+): { startTime: string; endTime: string; durationHours: number } {
+  let start = '08:00';
+  const duration = booking.durationHours && booking.durationHours > 0 ? booking.durationHours : 1;
+
+  const matchedSlot = timeSlots.find((s) => s.id === booking.timeSlotId);
+  if (matchedSlot) {
+    start = matchedSlot.startTime;
+  } else if (booking.timeSlotLabel) {
+    const match = booking.timeSlotLabel.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+    if (match) {
+      start = match[1].padStart(5, '0');
+      const end = match[2].padStart(5, '0');
+      return { startTime: start, endTime: end, durationHours: duration };
+    }
+  }
+
+  const end = addHoursToTime(start, duration);
+  return { startTime: start, endTime: end, durationHours: duration };
+}
+
+export function isSlotOccupiedByBooking(
+  slot: TimeSlot,
+  booking: Booking,
+  timeSlots: TimeSlot[]
+): boolean {
+  if (booking.bookingStatus === 'CANCELLED') return false;
+  const range = getBookingTimeRange(booking, timeSlots);
+  return isTimeRangeOverlap(slot.startTime, slot.endTime, range.startTime, range.endTime);
+}
+
 // Storage Manager Class
 class StorageService {
   private memoryCache: Record<string, unknown> = {};
@@ -708,12 +783,14 @@ class StorageService {
 
   /**
    * CRITICAL: Anti Double Booking Validation
-   * Checks if slot on target date + court + timeSlot is already occupied
+   * Checks if proposed interval [startTime, startTime + duration] on target date + court
+   * overlaps with any existing booking or exceeds operational hours.
    */
   checkSlotAvailability(
     date: string,
     courtId: string,
     timeSlotId: string,
+    durationHours: number = 1,
     excludeBookingId?: string
   ): { isAvailable: boolean; message?: string; existingBooking?: Booking } {
     // 1. Check if Court is active
@@ -736,23 +813,44 @@ class StorageService {
       return { isAvailable: false, message: 'Sesi jam tidak aktif' };
     }
 
-    // 3. Check for existing active booking on same date, court, and time slot
+    // Determine proposed start and end time
+    const proposedDuration = Math.max(1, Number(durationHours) || 1);
+    const proposedStart = slot.startTime;
+    const proposedEnd = addHoursToTime(proposedStart, proposedDuration);
+
+    // Check if end time exceeds operating hours or slot limits
+    const activeSlots = slots.filter((s) => s.active);
+    if (activeSlots.length > 0) {
+      const maxEndTime = activeSlots.reduce((max, s) => {
+        return timeStringToMinutes(s.endTime) > timeStringToMinutes(max) ? s.endTime : max;
+      }, activeSlots[0].endTime);
+
+      if (timeStringToMinutes(proposedEnd) > timeStringToMinutes(maxEndTime)) {
+        return {
+          isAvailable: false,
+          message: `Durasi ${proposedDuration} jam (${proposedStart} - ${proposedEnd}) melebihi jam operasional GOR (tutup pukul ${maxEndTime}).`,
+        };
+      }
+    }
+
+    // 3. Strict time range overlap check against ALL existing active bookings
     const bookings = this.getBookings();
-    const conflict = bookings.find(
-      (b) =>
+    for (const b of bookings) {
+      if (
         b.date === date &&
         b.courtId === courtId &&
-        b.timeSlotId === timeSlotId &&
         b.bookingStatus !== 'CANCELLED' &&
         (!excludeBookingId || b.id !== excludeBookingId)
-    );
-
-    if (conflict) {
-      return {
-        isAvailable: false,
-        message: 'Slot sudah dipesan atau tidak tersedia',
-        existingBooking: conflict,
-      };
+      ) {
+        const bRange = getBookingTimeRange(b, slots);
+        if (isTimeRangeOverlap(proposedStart, proposedEnd, bRange.startTime, bRange.endTime)) {
+          return {
+            isAvailable: false,
+            message: `Waktu ${proposedStart} - ${proposedEnd} bertabrakan dengan booking ${b.bookingCode} (${b.customerName}, pukul ${bRange.startTime} - ${bRange.endTime}).`,
+            existingBooking: b,
+          };
+        }
+      }
     }
 
     return { isAvailable: true };
@@ -776,17 +874,20 @@ class StorageService {
       monthlyGroupId?: string;
     }
   ): { success: boolean; booking?: Booking; error?: string } {
-    // 1. STRICT ANTI DOUBLE BOOKING VALIDATION
+    const durationHours = Math.max(1, Number(bookingInput.durationHours) || 1);
+
+    // 1. STRICT ANTI DOUBLE BOOKING VALIDATION ACROSS ENTIRE DURATION
     const availability = this.checkSlotAvailability(
       bookingInput.date,
       bookingInput.courtId,
-      bookingInput.timeSlotId
+      bookingInput.timeSlotId,
+      durationHours
     );
 
     if (!availability.isAvailable) {
       return {
         success: false,
-        error: availability.message || 'Slot sudah dipesan. Pilih slot atau jadwal lain.',
+        error: availability.message || 'Slot sudah dipesan atau bertabrakan dengan booking lain.',
       };
     }
 
@@ -803,7 +904,8 @@ class StorageService {
     const slots = this.getTimeSlots();
     const slot = slots.find((s) => s.id === bookingInput.timeSlotId)!;
 
-    const total = bookingInput.totalAmount ?? court.hourlyRate;
+    const calculatedTotal = court.hourlyRate * durationHours;
+    const total = bookingInput.totalAmount ?? calculatedTotal;
     const deposit = bookingInput.depositAmount ?? 0;
     const remaining = Math.max(0, total - deposit);
 
@@ -822,6 +924,12 @@ class StorageService {
     const dateCode = bookingInput.date.replace(/-/g, '').substring(4);
     const bookingCode = `BKG-${dateCode}-${randomCode}`;
 
+    const startTime = slot.startTime;
+    const endTime = addHoursToTime(startTime, durationHours);
+    const timeSlotLabel = durationHours > 1
+      ? `${startTime} - ${endTime} (${durationHours} Jam)`
+      : slot.label;
+
     const newBooking: Booking = {
       id: `bkg-${Date.now()}`,
       bookingCode,
@@ -832,8 +940,8 @@ class StorageService {
       courtName: court.name,
       date: bookingInput.date,
       timeSlotId: slot.id,
-      timeSlotLabel: slot.label,
-      durationHours: bookingInput.durationHours || 1,
+      timeSlotLabel,
+      durationHours,
       totalAmount: total,
       depositAmount: deposit,
       remainingAmount: remaining,
@@ -872,16 +980,20 @@ class StorageService {
     const targetDate = updates.date || current.date;
     const targetCourtId = updates.courtId || current.courtId;
     const targetSlotId = updates.timeSlotId || current.timeSlotId;
+    const targetDuration = updates.durationHours !== undefined
+      ? Math.max(1, Number(updates.durationHours) || 1)
+      : (current.durationHours || 1);
 
-    // If date, court, or slot is changing and status is not cancelled, validate double booking
+    // If date, court, slot, or duration is changing and status is not cancelled, validate double booking
     if (
       (updates.date && updates.date !== current.date) ||
       (updates.courtId && updates.courtId !== current.courtId) ||
-      (updates.timeSlotId && updates.timeSlotId !== current.timeSlotId)
+      (updates.timeSlotId && updates.timeSlotId !== current.timeSlotId) ||
+      (updates.durationHours !== undefined && updates.durationHours !== current.durationHours)
     ) {
-      const check = this.checkSlotAvailability(targetDate, targetCourtId, targetSlotId, id);
+      const check = this.checkSlotAvailability(targetDate, targetCourtId, targetSlotId, targetDuration, id);
       if (!check.isAvailable) {
-        return { success: false, error: check.message || 'Slot sudah dipesan pada jadwal baru tersebut.' };
+        return { success: false, error: check.message || 'Jadwal bertabrakan dengan booking lain.' };
       }
     }
 
@@ -908,16 +1020,22 @@ class StorageService {
       if (c) courtName = c.name;
     }
 
-    // If slot changed, update timeSlotLabel
+    // If slot or duration changed, update timeSlotLabel
+    const slots = this.getTimeSlots();
+    const activeSlot = slots.find((x) => x.id === targetSlotId);
     let slotLabel = current.timeSlotLabel;
-    if (updates.timeSlotId && updates.timeSlotId !== current.timeSlotId) {
-      const s = this.getTimeSlots().find((x) => x.id === updates.timeSlotId);
-      if (s) slotLabel = s.label;
+    if (activeSlot) {
+      const startTime = activeSlot.startTime;
+      const endTime = addHoursToTime(startTime, targetDuration);
+      slotLabel = targetDuration > 1
+        ? `${startTime} - ${endTime} (${targetDuration} Jam)`
+        : activeSlot.label;
     }
 
     const updatedBooking: Booking = {
       ...current,
       ...updates,
+      durationHours: targetDuration,
       courtName,
       timeSlotLabel: slotLabel,
       totalAmount: total,
@@ -961,6 +1079,7 @@ class StorageService {
     courtId: string,
     timeSlotId: string,
     selectedDays: number[],
+    durationHours: number = 1,
     excludeGroupId?: string
   ): {
     isAvailable: boolean;
@@ -1014,6 +1133,32 @@ class StorageService {
       };
     }
 
+    const proposedDuration = Math.max(1, Number(durationHours) || 1);
+    const proposedStart = slot.startTime;
+    const proposedEnd = addHoursToTime(proposedStart, proposedDuration);
+    const sessionLabel = proposedDuration > 1
+      ? `${proposedStart} - ${proposedEnd} (${proposedDuration} Jam)`
+      : slot.label;
+
+    // Check operating hours limit
+    const activeSlots = slots.filter((s) => s.active);
+    if (activeSlots.length > 0) {
+      const maxEndTime = activeSlots.reduce((max, s) => {
+        return timeStringToMinutes(s.endTime) > timeStringToMinutes(max) ? s.endTime : max;
+      }, activeSlots[0].endTime);
+
+      if (timeStringToMinutes(proposedEnd) > timeStringToMinutes(maxEndTime)) {
+        return {
+          isAvailable: false,
+          dates,
+          conflictingDates: [],
+          availableDatesCount: 0,
+          totalDatesCount: dates.length,
+          message: `Durasi ${proposedDuration} jam (${proposedStart} - ${proposedEnd}) melebihi jam operasional GOR (tutup pukul ${maxEndTime}).`,
+        };
+      }
+    }
+
     const conflictingDates: {
       date: string;
       formattedDate: string;
@@ -1038,22 +1183,27 @@ class StorageService {
         formattedDate = d;
       }
 
-      const conflict = bookings.find(
-        (b) =>
+      const conflict = bookings.find((b) => {
+        if (
           b.date === d &&
           b.courtId === courtId &&
-          b.timeSlotId === timeSlotId &&
           b.bookingStatus !== 'CANCELLED' &&
           (!excludeGroupId || b.monthlyGroupId !== excludeGroupId)
-      );
+        ) {
+          const bRange = getBookingTimeRange(b, slots);
+          return isTimeRangeOverlap(proposedStart, proposedEnd, bRange.startTime, bRange.endTime);
+        }
+        return false;
+      });
 
       if (conflict) {
+        const conflictRange = getBookingTimeRange(conflict, slots);
         conflictingDates.push({
           date: d,
           formattedDate,
           courtName: court.name,
-          timeSlotLabel: slot.label,
-          reason: `Sudah dibooking (${conflict.bookingCode} - ${conflict.customerName})`,
+          timeSlotLabel: sessionLabel,
+          reason: `Bentrok (${conflict.bookingCode} - ${conflict.customerName}, jam ${conflictRange.startTime} - ${conflictRange.endTime})`,
         });
       }
     }
@@ -1088,6 +1238,7 @@ class StorageService {
     selectedDays: number[];
     selectedDaysLabels: string[];
     timeSlotId: string;
+    durationHours?: number;
     totalAmount?: number;
     depositAmount?: number;
     bookingStatus?: BookingStatus;
@@ -1107,13 +1258,16 @@ class StorageService {
       reason: string;
     }[];
   } {
-    // 1. Validate availability of all recurring dates
+    const durationHours = Math.max(1, Number(input.durationHours) || 1);
+
+    // 1. Validate availability of all recurring dates across duration
     const check = this.checkMonthlyBookingAvailability(
       input.startDate,
       input.endDate,
       input.courtId,
       input.timeSlotId,
-      input.selectedDays
+      input.selectedDays,
+      durationHours
     );
 
     if (!check.isAvailable) {
@@ -1140,7 +1294,7 @@ class StorageService {
     const slot = slots.find((s) => s.id === input.timeSlotId)!;
 
     const sessionCount = dates.length;
-    const ratePerSession = court.hourlyRate;
+    const ratePerSession = court.hourlyRate * durationHours;
     const totalAmount = input.totalAmount ?? sessionCount * ratePerSession;
     const depositAmount = input.depositAmount ?? Math.round(totalAmount * 0.5);
     const remainingAmount = Math.max(0, totalAmount - depositAmount);
@@ -1162,6 +1316,12 @@ class StorageService {
 
     const periodLabel =
       input.periodLabel || `${input.startDate} s/d ${input.endDate}`;
+
+    const sessionStartTime = slot.startTime;
+    const sessionEndTime = addHoursToTime(sessionStartTime, durationHours);
+    const sessionTimeSlotLabel = durationHours > 1
+      ? `${sessionStartTime} - ${sessionEndTime} (${durationHours} Jam)`
+      : slot.label;
 
     // 4. Create individual Booking records for every recurring date session
     const allBookings = this.getBookings();
@@ -1187,8 +1347,8 @@ class StorageService {
         courtName: court.name,
         date: d,
         timeSlotId: slot.id,
-        timeSlotLabel: slot.label,
-        durationHours: 1,
+        timeSlotLabel: sessionTimeSlotLabel,
+        durationHours,
         totalAmount: perSessionTotal,
         depositAmount: perSessionDeposit,
         remainingAmount: perSessionRemaining,
@@ -1225,7 +1385,8 @@ class StorageService {
       selectedDays: input.selectedDays,
       selectedDaysLabels: input.selectedDaysLabels,
       timeSlotId: slot.id,
-      timeSlotLabel: slot.label,
+      timeSlotLabel: sessionTimeSlotLabel,
+      durationHours,
       sessionCount,
       ratePerSession,
       totalAmount,

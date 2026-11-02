@@ -335,7 +335,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           currentUser={currentUser}
           onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
           onQuickNewBooking={() => handleOpenNewBooking()}
-          onResetDemoData={handleResetDemoData}
+          onRefreshData={reloadData}
         />
 
         {/* View Switcher */}

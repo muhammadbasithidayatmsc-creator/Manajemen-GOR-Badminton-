@@ -62,6 +62,7 @@ export interface MonthlyBookingGroup {
   selectedDaysLabels: string[]; // e.g. ['Senin', 'Rabu']
   timeSlotId: string;
   timeSlotLabel: string;
+  durationHours?: number;
   sessionCount: number;
   ratePerSession: number;
   totalAmount: number;

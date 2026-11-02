@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Booking, Customer, Transaction } from '../../types';
 import { formatRupiah } from '../../services/store';
+import { cleanPhoneNumber } from '../../utils/whatsapp';
 import { BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadges';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -151,7 +152,7 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
             placeholder="Cari customer berdasarkan nama, nomor telepon, catatan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
           />
         </div>
       </div>
@@ -200,11 +201,12 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-800">
                         <a
-                          href={`https://wa.me/${cust.phone.replace(/[^0-9]/g, '')}`}
+                          href={`https://wa.me/${cleanPhoneNumber(cust.phone)}`}
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900"
+                          className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
+                          title="Hubungi Pelanggan via WhatsApp"
                         >
                           <Phone className="w-3.5 h-3.5" />
                           <span>{cust.phone}</span>
@@ -396,7 +398,7 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
       >
         <form onSubmit={handleFormSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-gray-900 uppercase tracking-wider mb-1">
               Nama Lengkap <span className="text-rose-500">*</span>
             </label>
             <input
@@ -405,12 +407,12 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
               placeholder="Contoh: Hendra Setiawan"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm sm:text-base font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-gray-900 uppercase tracking-wider mb-1">
               Nomor WhatsApp <span className="text-rose-500">*</span>
             </label>
             <input
@@ -419,12 +421,12 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
               placeholder="08123456789"
               value={formPhone}
               onChange={(e) => setFormPhone(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm sm:text-base font-semibold text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-gray-900 uppercase tracking-wider mb-1">
               Catatan Khusus (Komunitas / Klub / Member)
             </label>
             <textarea
@@ -432,7 +434,7 @@ export const CustomerListView: React.FC<CustomerListViewProps> = ({
               placeholder="Contoh: Member rutin hari sabtu malam"
               value={formNotes}
               onChange={(e) => setFormNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm sm:text-base font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
             />
           </div>
 

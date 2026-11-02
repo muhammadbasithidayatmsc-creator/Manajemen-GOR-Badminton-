@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Copy,
   Check,
+  MessageCircle,
 } from 'lucide-react';
 import {
   Booking,
@@ -29,6 +30,7 @@ import {
   PaymentStatus,
 } from '../../types';
 import { formatRupiah, store } from '../../services/store';
+import { generateCustomerWhatsAppUrl, cleanPhoneNumber } from '../../utils/whatsapp';
 import { BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadges';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { InvoiceModal } from '../common/InvoiceModal';
@@ -203,7 +205,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                   placeholder="Cari kode booking, nama, atau no. WA..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -212,7 +214,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="ALL">Semua Status Booking</option>
                   <option value="PENDING">PENDING</option>
@@ -227,7 +229,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                 <select
                   value={paymentFilter}
                   onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="ALL">Semua Status Bayar</option>
                   <option value="BELUM BAYAR">BELUM BAYAR</option>
@@ -241,7 +243,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                 <select
                   value={courtFilter}
                   onChange={(e) => setCourtFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-hidden"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="ALL">Semua Lapangan</option>
                   {courts.map((c) => (
@@ -255,7 +257,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
 
             {/* Date Filter & Clear */}
             <div className="flex items-center gap-3 pt-2 border-t border-slate-100 flex-wrap">
-              <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold">
+              <div className="flex items-center gap-2 text-xs text-slate-600 font-bold">
                 <Filter className="w-3.5 h-3.5" />
                 <span>Filter Tanggal:</span>
               </div>
@@ -263,7 +265,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs bg-slate-50 focus:bg-white text-slate-800"
+                className="px-2.5 py-1 rounded-lg border border-slate-300 text-xs bg-white text-[#1F2937] font-semibold focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
               {dateFilter && (
                 <button
@@ -345,13 +347,21 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                                 {b.customerName}
                               </div>
                               <a
-                                href={`https://wa.me/${b.customerPhone.replace(/[^0-9]/g, '')}`}
+                                href={generateCustomerWhatsAppUrl({
+                                  customerPhone: b.customerPhone,
+                                  customerName: b.customerName,
+                                  bookingCode: b.bookingCode,
+                                  courtName: b.courtName,
+                                  date: b.date,
+                                  timeSlotLabel: b.timeSlotLabel,
+                                  gorName: fallbackSettings.gorName,
+                                })}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                title="Chat WhatsApp"
+                                className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold transition-colors"
+                                title="Chat WhatsApp Pelanggan"
                               >
-                                <Phone className="w-3 h-3 text-blue-500" />
+                                <Phone className="w-3 h-3 text-emerald-600" />
                                 <span>{b.customerPhone}</span>
                               </a>
                             </div>
@@ -361,7 +371,18 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                           {b.courtName}
                         </td>
                         <td className="py-3.5 px-4 font-semibold text-slate-700">
-                          {b.timeSlotLabel}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{b.timeSlotLabel}</span>
+                            {b.durationHours && b.durationHours > 1 ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                {b.durationHours} Jam
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                1 Jam
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4">
                           <BookingStatusBadge status={b.bookingStatus} size="sm" />
@@ -377,13 +398,32 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Hubungi Pelanggan via WhatsApp */}
+                            <a
+                              href={generateCustomerWhatsAppUrl({
+                                customerPhone: b.customerPhone,
+                                customerName: b.customerName,
+                                bookingCode: b.bookingCode,
+                                courtName: b.courtName,
+                                date: b.date,
+                                timeSlotLabel: b.timeSlotLabel,
+                                gorName: fallbackSettings.gorName,
+                              })}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 border border-emerald-200 transition-colors inline-flex items-center justify-center"
+                              title="Hubungi Pelanggan via WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </a>
+
                             {/* Open Invoice Button */}
                             <button
                               onClick={() => {
                                 setSelectedInvoiceBooking(b);
                                 setSelectedInvoiceMonthly(null);
                               }}
-                              className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 border border-emerald-200 transition-colors"
+                              className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 transition-colors cursor-pointer"
                               title="Lihat & Print Invoice"
                             >
                               <FileText className="w-3.5 h-3.5" />
@@ -392,7 +432,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                             {/* Edit Booking Button */}
                             <button
                               onClick={() => onOpenBookingModal(b)}
-                              className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-slate-100 border border-slate-200 transition-colors"
+                              className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
                               title="Edit Booking & Pembayaran"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -401,7 +441,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                             {/* Delete Booking Button */}
                             <button
                               onClick={() => setDeleteTargetId(b.id)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 transition-colors cursor-pointer"
                               title="Hapus Booking"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -432,7 +472,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                 placeholder="Cari ID group, nama member, no. WA..."
                 value={monthlySearchTerm}
                 onChange={(e) => setMonthlySearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs font-medium bg-slate-50 focus:bg-white focus:outline-hidden"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
@@ -440,7 +480,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
               <select
                 value={monthlyStatusFilter}
                 onChange={(e) => setMonthlyStatusFilter(e.target.value)}
-                className="px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 focus:bg-white focus:outline-hidden"
+                className="px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-white text-[#1F2937] focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="ALL">Semua Status</option>
                 <option value="PENDING">PENDING</option>
@@ -502,23 +542,38 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                   {/* Customer and Court Info */}
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="space-y-1">
-                      <span className="text-[11px] text-slate-400 font-medium">Customer / Member</span>
+                      <span className="text-[11px] text-slate-500 font-bold">Customer / Member</span>
                       <div className="font-bold text-slate-900">{group.customerName}</div>
                       <a
-                        href={`https://wa.me/${group.customerPhone.replace(/[^0-9]/g, '')}`}
+                        href={generateCustomerWhatsAppUrl({
+                          customerPhone: group.customerPhone,
+                          customerName: group.customerName,
+                          bookingCode: group.groupCode,
+                          courtName: group.courtName,
+                          timeSlotLabel: group.timeSlotLabel,
+                          gorName: fallbackSettings.gorName,
+                        })}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-800 font-semibold"
+                        className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 font-bold"
+                        title="Chat WhatsApp Member"
                       >
-                        <Phone className="w-3 h-3" />
+                        <Phone className="w-3 h-3 text-emerald-600" />
                         <span>{group.customerPhone}</span>
                       </a>
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[11px] text-slate-400 font-medium">Lapangan & Sesi</span>
+                      <span className="text-[11px] text-slate-500 font-bold">Lapangan & Sesi</span>
                       <div className="font-bold text-slate-900">{group.courtName}</div>
-                      <div className="text-slate-600 font-semibold">{group.timeSlotLabel}</div>
+                      <div className="text-slate-700 font-semibold flex items-center gap-1.5 flex-wrap">
+                        <span>{group.timeSlotLabel}</span>
+                        {group.durationHours && group.durationHours > 1 && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            {group.durationHours} Jam
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -551,7 +606,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                             bookingStatus: e.target.value as BookingStatus,
                           })
                         }
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200 bg-white shadow-2xs focus:outline-hidden"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[#1F2937] shadow-2xs focus:outline-hidden"
                       >
                         <option value="PENDING">Status: PENDING</option>
                         <option value="CONFIRMED">Status: CONFIRMED</option>
@@ -567,7 +622,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                             paymentStatus: e.target.value as PaymentStatus,
                           })
                         }
-                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-200 bg-white shadow-2xs focus:outline-hidden"
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-[#1F2937] shadow-2xs focus:outline-hidden"
                       >
                         <option value="BELUM BAYAR">Bayar: BELUM BAYAR</option>
                         <option value="DP">Bayar: DP</option>
@@ -577,9 +632,26 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-1.5 ml-auto">
+                      <a
+                        href={generateCustomerWhatsAppUrl({
+                          customerPhone: group.customerPhone,
+                          customerName: group.customerName,
+                          bookingCode: group.groupCode,
+                          courtName: group.courtName,
+                          timeSlotLabel: group.timeSlotLabel,
+                          gorName: fallbackSettings.gorName,
+                        })}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1.5 rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors inline-flex items-center justify-center cursor-pointer"
+                        title="Hubungi Member via WhatsApp"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                      </a>
+
                       <button
                         onClick={() => setViewingSessionsGroup(group)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                         title="Lihat Daftar Sesi"
                       >
                         <span>Sesi ({group.dates?.length || 0})</span>
@@ -590,7 +662,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                           setSelectedInvoiceMonthly(group);
                           setSelectedInvoiceBooking(null);
                         }}
-                        className="p-1.5 rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                        className="p-1.5 rounded-lg border border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
                         title="Lihat Invoice Bulanan"
                       >
                         <FileText className="w-3.5 h-3.5" />
@@ -598,7 +670,7 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
 
                       <button
                         onClick={() => setDeleteMonthlyTargetId(group.id)}
-                        className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
+                        className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors cursor-pointer"
                         title="Hapus Paket Bulanan"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

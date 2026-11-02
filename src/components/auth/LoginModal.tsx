@@ -65,15 +65,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     >
       <div className="space-y-6">
         {/* Visual Luxury Banner Header */}
-        <div className="relative rounded-2xl overflow-hidden p-4 bg-gradient-to-br from-blue-950/70 via-slate-900 to-slate-950 border border-white/10 flex items-center gap-3.5 shadow-inner">
+        <div className="relative rounded-2xl overflow-hidden p-4 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 border border-white/10 flex items-center gap-3.5 shadow-inner">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30 shrink-0">
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="text-sm font-black text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+            <div className="text-sm font-black text-white uppercase tracking-wide flex items-center gap-1.5">
               <span>Sistem Manajemen Terpadu</span>
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="text-xs text-slate-300 mt-0.5">
               Masukkan kredensial akun terdaftar Anda untuk melanjutkan.
             </div>
           </div>
@@ -82,11 +82,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Form: Username, Password, Login (No default credentials shown) */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
               Username / Email <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                 <UserIcon className="w-4 h-4" />
               </div>
               <input
@@ -97,17 +97,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 placeholder="Masukkan username atau email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-[#1F2937] bg-white placeholder:text-gray-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
               Kata Sandi <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                 <Lock className="w-4 h-4" />
               </div>
               <input
@@ -117,12 +117,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 placeholder="Masukkan kata sandi"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-300 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-900 placeholder:text-slate-400"
+                className="w-full pl-10 pr-11 py-3 rounded-xl border border-slate-300 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-[#1F2937] bg-white placeholder:text-gray-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-800 focus:outline-hidden cursor-pointer"
                 tabIndex={-1}
                 aria-label={showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'}
               >

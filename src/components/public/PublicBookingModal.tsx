@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Repeat,
   Info,
+  Timer,
 } from 'lucide-react';
 import {
   Booking,
@@ -30,10 +31,13 @@ import {
   generateMonthlyDates,
   getTodayString,
   store,
+  addHoursToTime,
+  timeStringToMinutes,
 } from '../../services/store';
 import {
   generateBookingWhatsAppUrl,
   generateMonthlyBookingWhatsAppUrl,
+  DEFAULT_ADMIN_WHATSAPP,
 } from '../../utils/whatsapp';
 import { useToast } from '../../context/ToastContext';
 import { InvoiceModal } from '../common/InvoiceModal';
@@ -60,6 +64,8 @@ const DAYS_OF_WEEK = [
   { index: 6, label: 'Sabtu', short: 'Sab' },
   { index: 0, label: 'Minggu', short: 'Min' },
 ];
+
+const STANDARD_DURATIONS = [1, 2, 3, 4, 5];
 
 export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   isOpen,
@@ -96,6 +102,9 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
   // Regular Booking states
   const [selectedDate, setSelectedDate] = useState<string>(initialDate || getTodayString(0));
+  const [regularDuration, setRegularDuration] = useState<number>(1);
+  const [isCustomRegularDuration, setIsCustomRegularDuration] = useState<boolean>(false);
+  const [customRegularHours, setCustomRegularHours] = useState<number>(3);
 
   // Monthly Booking states
   const defaultStartDate = useMemo(() => getTodayString(1), []);
@@ -111,11 +120,30 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const [monthlyStartDate, setMonthlyStartDate] = useState<string>(defaultStartDate);
   const [monthlyEndDate, setMonthlyEndDate] = useState<string>(defaultEndDate);
   const [monthlySelectedDays, setMonthlySelectedDays] = useState<number[]>([1]); // default: Senin
+  const [monthlyDuration, setMonthlyDuration] = useState<number>(1);
+  const [isCustomMonthlyDuration, setIsCustomMonthlyDuration] = useState<boolean>(false);
+  const [customMonthlyHours, setCustomMonthlyHours] = useState<number>(3);
 
   // Auto-invoice state
   const [showInvoice, setShowInvoice] = useState(false);
   const [invoiceBooking, setInvoiceBooking] = useState<Booking | null>(null);
   const [invoiceMonthly, setInvoiceMonthly] = useState<MonthlyBookingGroup | null>(null);
+
+  // Effective duration
+  const activeDurationHours = useMemo(() => {
+    if (bookingType === 'MONTHLY') {
+      return isCustomMonthlyDuration ? Math.max(1, customMonthlyHours) : monthlyDuration;
+    }
+    return isCustomRegularDuration ? Math.max(1, customRegularHours) : regularDuration;
+  }, [
+    bookingType,
+    isCustomMonthlyDuration,
+    customMonthlyHours,
+    monthlyDuration,
+    isCustomRegularDuration,
+    customRegularHours,
+    regularDuration,
+  ]);
 
   // Sync initial props when modal opens
   useEffect(() => {
@@ -130,30 +158,52 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const selectedCourt = activeCourts.find((c) => c.id === selectedCourtId);
   const selectedSlot = activeSlots.find((s) => s.id === selectedSlotId);
 
-  // Calculate availability of slots for REGULAR chosen date and court
+  // Calculated End Time preview
+  const timeSpanPreview = useMemo(() => {
+    if (!selectedSlot) return null;
+    const start = selectedSlot.startTime;
+    const end = addHoursToTime(start, activeDurationHours);
+    return {
+      start,
+      end,
+      duration: activeDurationHours,
+      label: activeDurationHours > 1 ? `${start} - ${end} (${activeDurationHours} Jam)` : selectedSlot.label,
+    };
+  }, [selectedSlot, activeDurationHours]);
+
+  // Calculate availability of slots for REGULAR chosen date, court, and duration
   const slotAvailabilityMap = useMemo(() => {
-    const map: Record<string, boolean> = {};
+    const map: Record<string, { isAvailable: boolean; message?: string }> = {};
     if (!selectedCourtId || !selectedDate) return map;
 
     for (const slot of activeSlots) {
-      const isOccupied = bookings.some(
-        (b) =>
-          b.date === selectedDate &&
-          b.courtId === selectedCourtId &&
-          b.timeSlotId === slot.id &&
-          b.bookingStatus !== 'CANCELLED'
+      const check = store.checkSlotAvailability(
+        selectedDate,
+        selectedCourtId,
+        slot.id,
+        activeDurationHours
       );
-      map[slot.id] = !isOccupied;
+      map[slot.id] = {
+        isAvailable: check.isAvailable,
+        message: check.message,
+      };
     }
     return map;
-  }, [selectedDate, selectedCourtId, activeSlots, bookings]);
+  }, [selectedDate, selectedCourtId, activeSlots, activeDurationHours, bookings]);
 
-  // If currently selected slot becomes unavailable in REGULAR mode, reset it
-  useEffect(() => {
-    if (bookingType === 'REGULAR' && selectedSlotId && slotAvailabilityMap[selectedSlotId] === false) {
-      setSelectedSlotId('');
+  // Real-time conflict validation for currently selected slot
+  const currentSlotConflict = useMemo(() => {
+    if (bookingType !== 'REGULAR' || !selectedCourtId || !selectedDate || !selectedSlotId) {
+      return null;
     }
-  }, [selectedDate, selectedCourtId, slotAvailabilityMap, selectedSlotId, bookingType]);
+    const check = store.checkSlotAvailability(
+      selectedDate,
+      selectedCourtId,
+      selectedSlotId,
+      activeDurationHours
+    );
+    return check.isAvailable ? null : check.message || 'Slot jam ini tidak tersedia atau bertabrakan.';
+  }, [bookingType, selectedCourtId, selectedDate, selectedSlotId, activeDurationHours, bookings]);
 
   // Generate monthly dates preview
   const monthlyDates = useMemo(() => {
@@ -161,7 +211,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     return generateMonthlyDates(monthlyStartDate, monthlyEndDate, monthlySelectedDays);
   }, [bookingType, monthlyStartDate, monthlyEndDate, monthlySelectedDays]);
 
-  // Real-time monthly conflict checker
+  // Real-time monthly conflict checker across full duration
   const monthlyAvailability = useMemo(() => {
     if (bookingType !== 'MONTHLY' || !selectedCourtId || !selectedSlotId || monthlyDates.length === 0) {
       return null;
@@ -171,9 +221,20 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
       monthlyEndDate,
       selectedCourtId,
       selectedSlotId,
-      monthlySelectedDays
+      monthlySelectedDays,
+      activeDurationHours
     );
-  }, [bookingType, monthlyStartDate, monthlyEndDate, selectedCourtId, selectedSlotId, monthlySelectedDays, monthlyDates]);
+  }, [
+    bookingType,
+    monthlyStartDate,
+    monthlyEndDate,
+    selectedCourtId,
+    selectedSlotId,
+    monthlySelectedDays,
+    monthlyDates,
+    activeDurationHours,
+    bookings,
+  ]);
 
   // Selected days labels
   const selectedDaysLabels = useMemo(() => {
@@ -195,11 +256,12 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
   // Price calculations
   const hourlyRate = selectedCourt ? selectedCourt.hourlyRate : settings.defaultHourlyRate;
-  const regularTotal = hourlyRate;
+  const regularTotal = hourlyRate * activeDurationHours;
   const regularDeposit = Math.round(regularTotal * 0.5);
 
   const monthlySessionCount = monthlyDates.length;
-  const monthlyTotal = hourlyRate * monthlySessionCount;
+  const monthlyRatePerSession = hourlyRate * activeDurationHours;
+  const monthlyTotal = monthlyRatePerSession * monthlySessionCount;
   const monthlyDeposit = Math.round(monthlyTotal * 0.5);
 
   if (!isOpen && !showInvoice) return null;
@@ -230,17 +292,18 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      // 1. STRICT ANTI-DOUBLE BOOKING CHECK
+      // 1. STRICT ANTI-DOUBLE BOOKING CHECK ACROSS FULL DURATION
       const availabilityCheck = store.checkSlotAvailability(
         selectedDate,
         selectedCourt.id,
-        selectedSlot.id
+        selectedSlot.id,
+        activeDurationHours
       );
 
       if (!availabilityCheck.isAvailable) {
         error(
-          'Jadwal Sudah Terisi',
-          availabilityCheck.message || 'Slot baru saja dibooking oleh pemain lain. Silakan pilih slot lain.'
+          'Jadwal Sudah Terisi / Bertabrakan',
+          availabilityCheck.message || 'Waktu bermain bertabrakan dengan jadwal lain. Silakan pilih sesi atau durasi lain.'
         );
         setIsSubmitting(false);
         return;
@@ -253,7 +316,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         courtId: selectedCourt.id,
         date: selectedDate,
         timeSlotId: selectedSlot.id,
-        durationHours: 1,
+        durationHours: activeDurationHours,
         totalAmount: regularTotal,
         depositAmount: regularDeposit,
         bookingStatus: 'PENDING',
@@ -278,8 +341,8 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         customerPhone: customerPhone.trim(),
         courtName: selectedCourt.name,
         date: selectedDate,
-        timeSlotLabel: selectedSlot.label,
-        durationHours: 1,
+        timeSlotLabel: createdBooking.timeSlotLabel,
+        durationHours: activeDurationHours,
         totalAmount: regularTotal,
         depositAmount: regularDeposit,
         notes: customerNotes.trim(),
@@ -297,7 +360,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
       success(
         'Booking Berhasil Dibuat!',
-        `Kode: ${createdBooking.bookingCode}. Ringkasan invoice telah dibuat.`
+        `Kode: ${createdBooking.bookingCode}. Durasi: ${activeDurationHours} Jam. Ringkasan invoice telah dibuat.`
       );
 
       if (onBookingSubmitted) onBookingSubmitted();
@@ -339,19 +402,20 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      // 1. Check conflicts
+      // 1. Check conflicts across full multi-hour duration
       const check = store.checkMonthlyBookingAvailability(
         monthlyStartDate,
         monthlyEndDate,
         selectedCourt.id,
         selectedSlot.id,
-        monthlySelectedDays
+        monthlySelectedDays,
+        activeDurationHours
       );
 
       if (!check.isAvailable) {
         error(
           'Jadwal Bentrok!',
-          `Terdapat ${check.conflictingDates.length} sesi yang bentrok dengan booking lain. Silakan periksa daftar jadwal bentrok di bawah.`
+          `Terdapat ${check.conflictingDates.length} sesi yang bentrok dengan booking lain. Silakan periksa daftar jadwal bentrok.`
         );
         setIsSubmitting(false);
         return;
@@ -373,6 +437,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         selectedDays: monthlySelectedDays,
         selectedDaysLabels,
         timeSlotId: selectedSlot.id,
+        durationHours: activeDurationHours,
         totalAmount: monthlyTotal,
         depositAmount: monthlyDeposit,
         bookingStatus: 'PENDING',
@@ -420,7 +485,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
       success(
         'Booking Bulanan Berhasil!',
-        `ID: ${createdGroup.groupCode}. ${createdGroup.sessionCount} sesi berhasil dipesan.`
+        `ID: ${createdGroup.groupCode}. ${createdGroup.sessionCount} sesi (@${activeDurationHours} jam) berhasil dipesan.`
       );
 
       if (onBookingSubmitted) onBookingSubmitted();
@@ -463,7 +528,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         >
           <div
             id="public-booking-modal-container"
-            className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
+            className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[94vh] flex flex-col"
           >
             {/* Modal Header */}
             <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-emerald-950/60 to-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
@@ -474,7 +539,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                 <div>
                   <h3 className="text-lg font-black text-white">Booking Lapangan Badminton</h3>
                   <p className="text-xs text-emerald-400 font-medium">
-                    {settings.gorName || settings.name} &bull; WhatsApp: +{settings.adminWhatsApp || '6281803716514'}
+                    {settings.gorName || settings.name} &bull; Admin WhatsApp: +{settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
                   </p>
                 </div>
               </div>
@@ -493,7 +558,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
             <form onSubmit={handleFormSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200">
               {/* TAB TOGGLE: Booking Reguler vs Booking Bulanan */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <label className="text-sm font-bold uppercase tracking-wider text-slate-200">
                   Pilih Jenis Booking:
                 </label>
                 <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-950 border border-slate-800 rounded-2xl">
@@ -503,7 +568,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                     onClick={() => setBookingType('REGULAR')}
                     className={`py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       bookingType === 'REGULAR'
-                        ? 'bg-emerald-600 text-slate-950 shadow-md'
+                        ? 'bg-emerald-600 text-white shadow-md'
                         : 'text-slate-400 hover:text-white hover:bg-slate-900'
                     }`}
                   >
@@ -530,7 +595,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               {/* IF REGULAR: Step 1 = Single Date */}
               {bookingType === 'REGULAR' && (
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <label className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-emerald-400" />
                     <span>1. Tanggal Bermain</span>
                   </label>
@@ -541,7 +606,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                     max={getTodayString(45)}
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold text-white focus:outline-hidden focus:border-emerald-500"
+                    className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl px-4 py-3 text-sm sm:text-base font-semibold placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                     required
                   />
                 </div>
@@ -550,7 +615,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               {/* IF MONTHLY: Step 1 = Periode & Pola Hari */}
               {bookingType === 'MONTHLY' && (
                 <div className="space-y-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-900/40">
-                  <div className="flex items-center gap-2 text-purple-300 font-bold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-purple-300 font-bold text-sm uppercase tracking-wider">
                     <Repeat className="w-4 h-4 text-purple-400" />
                     <span>1. Periode & Pola Hari Rutin Bulanan</span>
                   </div>
@@ -558,26 +623,26 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                   {/* Date range */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-xs text-slate-300">Tanggal Mulai *</label>
+                      <label className="text-xs font-semibold text-slate-200">Tanggal Mulai *</label>
                       <input
                         type="date"
                         id="monthly-start-date"
                         min={getTodayString(0)}
                         value={monthlyStartDate}
                         onChange={(e) => setMonthlyStartDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-purple-800/60 rounded-xl px-3.5 py-2 text-sm text-white focus:border-purple-500"
+                        className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm sm:text-base font-semibold placeholder:text-gray-500 focus:ring-2 focus:ring-purple-500"
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-slate-300">Tanggal Selesai *</label>
+                      <label className="text-xs font-semibold text-slate-200">Tanggal Selesai *</label>
                       <input
                         type="date"
                         id="monthly-end-date"
                         min={monthlyStartDate}
                         value={monthlyEndDate}
                         onChange={(e) => setMonthlyEndDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-purple-800/60 rounded-xl px-3.5 py-2 text-sm text-white focus:border-purple-500"
+                        className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm sm:text-base font-semibold placeholder:text-gray-500 focus:ring-2 focus:ring-purple-500"
                         required
                       />
                     </div>
@@ -586,15 +651,15 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                   {/* Day of Week Selector */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs text-slate-300">
-                        Pilih Hari Bermain Rutin: <span className="text-purple-300 font-semibold">{selectedDaysLabels.join(', ')}</span>
+                      <label className="text-xs font-semibold text-slate-200">
+                        Pilih Hari Bermain Rutin: <span className="text-purple-300 font-bold">{selectedDaysLabels.join(', ')}</span>
                       </label>
                       <button
                         type="button"
                         onClick={() => setMonthlySelectedDays([1, 2, 3, 4, 5])}
-                        className="text-[11px] text-purple-400 hover:text-purple-300 underline"
+                        className="text-[11px] text-purple-400 hover:text-purple-300 underline font-semibold cursor-pointer"
                       >
-                        Hari Kerja
+                        Hari Kerja (Sen-Jum)
                       </button>
                     </div>
 
@@ -608,7 +673,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                             onClick={() => toggleDayOfWeek(d.index)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-purple-600 border-purple-400 text-white shadow-sm'
+                                ? 'bg-purple-600 border-purple-400 text-white shadow-sm font-bold'
                                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                             }`}
                           >
@@ -631,7 +696,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
 
               {/* Step 2: Pilih Lapangan */}
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <label className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-emerald-400" />
                   <span>2. Pilih Lapangan Badminton</span>
                 </label>
@@ -651,7 +716,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-extrabold text-sm text-white">{court.name}</span>
-                          <span className="text-[11px] font-mono text-emerald-400">{court.code}</span>
+                          <span className="text-[11px] font-mono text-emerald-400 font-bold">{court.code}</span>
                         </div>
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80 text-xs">
                           <span className="text-slate-400 truncate max-w-[120px]">
@@ -665,66 +730,195 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                 </div>
               </div>
 
-              {/* Step 3: Pilih Sesi Jam */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-emerald-400" />
-                    <span>3. Pilih Sesi Jam {bookingType === 'MONTHLY' ? 'Rutin' : '(Tersedia / Terisi)'}</span>
-                  </label>
-                  <span className="text-[11px] text-emerald-400 font-semibold">
-                    WIB
-                  </span>
-                </div>
+              {/* Step 3: Pilih Durasi & Jam Mulai */}
+              <div className="space-y-4">
+                {/* 3A. DURASI FLEKSIBEL (1, 2, 3, 4, 5 Jam atau Kustom) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+                      <Timer className="w-4 h-4 text-emerald-400" />
+                      <span>3. Durasi Bermain</span>
+                    </label>
+                    <span className="text-xs text-emerald-400 font-bold">
+                      {activeDurationHours} Jam Bermain
+                    </span>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1 border border-slate-800/80 rounded-2xl bg-slate-950">
-                  {activeSlots.map((slot) => {
-                    const isAvailable =
-                      bookingType === 'MONTHLY' ? true : slotAvailabilityMap[slot.id] !== false;
-                    const isSelected = selectedSlotId === slot.id;
+                  <div className="flex flex-wrap gap-2">
+                    {STANDARD_DURATIONS.map((hrs) => {
+                      const isSelected =
+                        bookingType === 'MONTHLY'
+                          ? !isCustomMonthlyDuration && monthlyDuration === hrs
+                          : !isCustomRegularDuration && regularDuration === hrs;
 
-                    if (!isAvailable) {
                       return (
-                        <div
-                          key={slot.id}
-                          title="Slot jam ini sudah terisi"
-                          className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-500 flex flex-col items-center justify-center cursor-not-allowed select-none opacity-60"
-                        >
-                          <span className="font-mono text-xs font-semibold">{slot.label}</span>
-                          <span className="text-[10px] text-rose-400 font-bold uppercase mt-0.5">Terisi</span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        type="button"
-                        key={slot.id}
-                        onClick={() => setSelectedSlotId(slot.id)}
-                        className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
-                          isSelected
-                            ? bookingType === 'MONTHLY'
-                              ? 'bg-purple-600 border-purple-300 text-white font-bold shadow-md'
-                              : 'bg-emerald-600 border-emerald-300 text-slate-950 font-bold shadow-md'
-                            : 'bg-slate-900 hover:bg-slate-850 border-slate-700/80 text-white hover:border-emerald-500/50'
-                        }`}
-                      >
-                        <span className="font-mono text-xs font-bold">{slot.label}</span>
-                        <span
-                          className={`text-[10px] font-bold uppercase mt-0.5 ${
+                        <button
+                          type="button"
+                          key={hrs}
+                          onClick={() => {
+                            if (bookingType === 'MONTHLY') {
+                              setIsCustomMonthlyDuration(false);
+                              setMonthlyDuration(hrs);
+                            } else {
+                              setIsCustomRegularDuration(false);
+                              setRegularDuration(hrs);
+                            }
+                          }}
+                          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold border transition-all cursor-pointer ${
                             isSelected
                               ? bookingType === 'MONTHLY'
-                                ? 'text-white'
-                                : 'text-slate-950'
-                              : 'text-emerald-400'
+                                ? 'bg-purple-600 border-purple-400 text-white shadow-md'
+                                : 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                              : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
                           }`}
                         >
-                          {isSelected ? '✓ Dipilih' : 'Pilih Sesi'}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          {hrs} Jam
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bookingType === 'MONTHLY') {
+                          setIsCustomMonthlyDuration(true);
+                        } else {
+                          setIsCustomRegularDuration(true);
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        (bookingType === 'MONTHLY' ? isCustomMonthlyDuration : isCustomRegularDuration)
+                          ? 'bg-blue-600 border-blue-400 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Kustom
+                    </button>
+                  </div>
+
+                  {/* If custom duration selected */}
+                  {((bookingType === 'MONTHLY' && isCustomMonthlyDuration) ||
+                    (bookingType === 'REGULAR' && isCustomRegularDuration)) && (
+                    <div className="flex items-center gap-2 pt-1 max-w-xs">
+                      <span className="text-xs text-slate-300 font-medium">Jumlah jam:</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={bookingType === 'MONTHLY' ? customMonthlyHours : customRegularHours}
+                        onChange={(e) => {
+                          const val = Math.max(1, Math.min(8, Number(e.target.value) || 1));
+                          if (bookingType === 'MONTHLY') {
+                            setCustomMonthlyHours(val);
+                          } else {
+                            setCustomRegularHours(val);
+                          }
+                        }}
+                        className="w-20 bg-white text-[#1F2937] border border-slate-300 rounded-xl px-3 py-1.5 text-sm font-bold text-center focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs text-slate-300">Jam per sesi</span>
+                    </div>
+                  )}
                 </div>
+
+                {/* 3B. PILIH JAM MULAI */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-emerald-400" />
+                      <span>Pilih Jam Mulai</span>
+                    </label>
+                    <span className="text-[11px] text-slate-400">
+                      Selesai otomatis dihitung (+{activeDurationHours} jam)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1 border border-slate-800/80 rounded-2xl bg-slate-950">
+                    {activeSlots.map((slot) => {
+                      const slotCheck = slotAvailabilityMap[slot.id];
+                      const isAvailable =
+                        bookingType === 'MONTHLY' ? true : slotCheck?.isAvailable !== false;
+                      const isSelected = selectedSlotId === slot.id;
+
+                      if (!isAvailable) {
+                        return (
+                          <div
+                            key={slot.id}
+                            title={slotCheck?.message || 'Slot jam ini sudah terisi atau bertabrakan'}
+                            className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-500 flex flex-col items-center justify-center cursor-not-allowed select-none opacity-50"
+                          >
+                            <span className="font-mono text-xs font-semibold">{slot.startTime}</span>
+                            <span className="text-[10px] text-rose-400 font-bold uppercase mt-0.5">
+                              Tidak Tersedia
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          key={slot.id}
+                          onClick={() => setSelectedSlotId(slot.id)}
+                          className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                            isSelected
+                              ? bookingType === 'MONTHLY'
+                                ? 'bg-purple-600 border-purple-300 text-white font-bold shadow-md'
+                                : 'bg-emerald-600 border-emerald-300 text-white font-bold shadow-md'
+                              : 'bg-slate-900 hover:bg-slate-850 border-slate-700/80 text-white hover:border-emerald-500/50'
+                          }`}
+                        >
+                          <span className="font-mono text-xs font-bold">{slot.startTime}</span>
+                          <span
+                            className={`text-[10px] font-bold uppercase mt-0.5 ${
+                              isSelected
+                                ? 'text-white'
+                                : 'text-emerald-400'
+                            }`}
+                          >
+                            {isSelected ? '✓ Dipilih' : 'Mulai Jam Ini'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3C. INTERACTIVE RENTANG WAKTU SELESAI OTOMATIS */}
+                {timeSpanPreview && (
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs text-slate-300">
+                      <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>
+                        Jadwal Main:{' '}
+                        <strong className="text-white font-mono text-sm">
+                          {timeSpanPreview.start} &rarr; {timeSpanPreview.end}
+                        </strong>{' '}
+                        ({timeSpanPreview.duration} Jam)
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs text-emerald-400 font-bold">
+                        {formatRupiah(hourlyRate * activeDurationHours)}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        (@{formatRupiah(hourlyRate)}/jam &times; {activeDurationHours} jam)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Conflict warning for REGULAR booking */}
+                {currentSlotConflict && (
+                  <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800 flex items-start gap-2.5 text-xs text-rose-200">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-rose-300 font-bold">Jadwal Bertabrakan:</strong>
+                      <span>{currentSlotConflict}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* MONTHLY CONFLICT CHECK WARNING DISPLAY */}
@@ -737,7 +931,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                         <span>⚠️ Beberapa jadwal tidak tersedia ({monthlyAvailability.conflictingDates.length} sesi bentrok):</span>
                       </div>
                       <p className="text-[11px] text-rose-200/80">
-                        Jadwal berikut sudah dibooking oleh pemain lain. Silakan ubah hari, jam sesi, atau pilih lapangan lain:
+                        Jadwal berikut sudah dibooking oleh pemain lain. Silakan ubah hari, jam sesi, durasi, atau pilih lapangan lain:
                       </p>
                       <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
                         {monthlyAvailability.conflictingDates.map((c, i) => (
@@ -755,60 +949,66 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                     <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-800/60 flex items-center gap-2 text-emerald-300 text-xs">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                       <span>
-                        ✓ Semua <strong>{monthlyAvailability.totalDatesCount} sesi</strong> tersedia! Jadwal: Setiap {selectedDaysLabels.join(' & ')} pukul {selectedSlot?.label}.
+                        ✓ Semua <strong>{monthlyAvailability.totalDatesCount} sesi</strong> tersedia! Jadwal: Setiap {selectedDaysLabels.join(' & ')} pukul {timeSpanPreview?.label}.
                       </span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Step 4: Data Pemesan */}
+              {/* Step 4: Data Pemesan (HIGH CONTRAST & CLEAR READABILITY) */}
               <div className="space-y-3 pt-2 border-t border-slate-800">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <h4 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
                   <User className="w-4 h-4 text-emerald-400" />
                   <span>4. Data Kontak Pemesan / Komunitas</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-400">Nama Customer / Komunitas *</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-200">
+                      Nama Customer / Komunitas <span className="text-rose-400">*</span>
+                    </label>
                     <input
                       type="text"
                       id="customer-name-input"
                       placeholder="Contoh: Kevin Sanjaya / PB Smash"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                      className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl px-4 py-3 text-sm sm:text-base font-semibold placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                       required
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs text-slate-400">Nomor WhatsApp Aktif *</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-200">
+                      Nomor WhatsApp Customer <span className="text-rose-400">*</span>
+                    </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Phone className="w-5 h-5 text-gray-500 absolute left-3.5 top-3.5 pointer-events-none" />
                       <input
                         type="tel"
                         id="customer-phone-input"
                         placeholder="Contoh: 08123456789"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                        className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl pl-11 pr-4 py-3 text-sm sm:text-base font-semibold placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                         required
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-400">Catatan Tambahan (Opsional)</label>
-                  <input
-                    type="text"
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-200">
+                    Catatan Tambahan (Opsional)
+                  </label>
+                  <textarea
+                    rows={2}
                     id="customer-notes-input"
-                    placeholder="Contoh: Sparring rutin / butuh sewa raket 2 pcs"
+                    placeholder="Contoh: Sparring rutin / sewa 2 raket & shuttlecock"
                     value={customerNotes}
                     onChange={(e) => setCustomerNotes(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500"
+                    className="w-full bg-white text-[#1F2937] border border-slate-300 rounded-xl px-4 py-2.5 text-sm sm:text-base font-medium placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -817,7 +1017,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
                 <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-800">
                   <span className="text-slate-400">
-                    Total Biaya Sewa ({bookingType === 'MONTHLY' ? `${monthlySessionCount} Sesi Bulanan` : '1 Sesi Harian'}):
+                    Total Biaya Sewa ({bookingType === 'MONTHLY' ? `${monthlySessionCount} Sesi Bulanan (@${activeDurationHours} Jam)` : `1 Sesi (${activeDurationHours} Jam)`}):
                   </span>
                   <span className="text-base font-black text-white">
                     {formatRupiah(bookingType === 'MONTHLY' ? monthlyTotal : regularTotal)}
@@ -840,7 +1040,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                     <div className="font-mono text-emerald-300">{settings.bankInfo}</div>
                   )}
                   <p className="text-slate-500 italic mt-1">
-                    Booking akan langsung diarahkan ke WhatsApp Admin (+{settings.adminWhatsApp || '6281803716514'}) dan Invoice otomatis diterbitkan.
+                    Booking akan langsung diarahkan ke WhatsApp Admin (+{settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}) dan Invoice resmi otomatis diterbitkan.
                   </p>
                 </div>
               </div>
@@ -862,12 +1062,13 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                   disabled={
                     isSubmitting ||
                     !selectedSlotId ||
+                    Boolean(currentSlotConflict) ||
                     (bookingType === 'MONTHLY' && (!monthlyAvailability || !monthlyAvailability.isAvailable))
                   }
                   className={`px-6 py-3 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     bookingType === 'MONTHLY'
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white shadow-purple-500/25'
-                      : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-emerald-500/25'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-emerald-500/25'
                   }`}
                 >
                   <Send className="w-4 h-4" />
@@ -887,4 +1088,3 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
     </>
   );
 };
-

@@ -3,16 +3,60 @@ import { formatRupiah } from '../services/store';
 
 export const DEFAULT_ADMIN_WHATSAPP = '6281803716514';
 
-export function normalizeWhatsAppNumber(phone?: string): string {
-  if (!phone) return DEFAULT_ADMIN_WHATSAPP;
+/**
+ * Clean phone number to WhatsApp international format (628...)
+ * Strips non-digits, spaces, plus signs, dashes, and converts leading 0 to 62
+ */
+export function cleanPhoneNumber(phone?: string): string {
+  if (!phone) return '';
   let clean = phone.replace(/[^0-9]/g, '');
-  if (!clean) return DEFAULT_ADMIN_WHATSAPP;
+  if (!clean) return '';
   if (clean.startsWith('0')) {
     clean = '62' + clean.substring(1);
   } else if (!clean.startsWith('62')) {
     clean = '62' + clean;
   }
   return clean;
+}
+
+export function normalizeWhatsAppNumber(phone?: string): string {
+  const cleaned = cleanPhoneNumber(phone);
+  return cleaned || DEFAULT_ADMIN_WHATSAPP;
+}
+
+/**
+ * Generate direct WhatsApp URL to contact the CUSTOMER from Admin panel
+ * Uses the customer's own phone number!
+ */
+export function generateCustomerWhatsAppUrl(params: {
+  customerPhone: string;
+  customerName?: string;
+  bookingCode?: string;
+  courtName?: string;
+  date?: string;
+  timeSlotLabel?: string;
+  gorName?: string;
+  customMessage?: string;
+}): string {
+  const targetPhone = cleanPhoneNumber(params.customerPhone);
+  if (!targetPhone) return '#';
+
+  if (params.customMessage) {
+    return `https://wa.me/${targetPhone}?text=${encodeURIComponent(params.customMessage)}`;
+  }
+
+  const gor = params.gorName || 'GOR Badminton';
+  let text = `Halo Kak ${params.customerName ? params.customerName.trim() : ''}, kami dari Admin ${gor}.`;
+  if (params.bookingCode) {
+    text += ` Mengenai reservasi Anda (${params.bookingCode})`;
+    if (params.courtName && params.date) {
+      text += ` di ${params.courtName} pada tanggal ${params.date} (${params.timeSlotLabel || ''}).`;
+    } else {
+      text += '.';
+    }
+  }
+
+  return `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
 }
 
 export function generateBookingWhatsAppUrl(params: {

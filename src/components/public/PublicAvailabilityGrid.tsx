@@ -9,6 +9,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Booking, Court, TimeSlot } from '../../types';
+import { isSlotOccupiedByBooking } from '../../services/store';
 
 interface PublicAvailabilityGridProps {
   selectedDate: string;
@@ -131,13 +132,12 @@ export const PublicAvailabilityGrid: React.FC<PublicAvailabilityGridProps> = ({
                   {displayCourts.map((court) => {
                     const isCourtMaintenance = court.status === 'MAINTENANCE';
 
-                    // Find if booked
+                    // Find if booked across full multi-hour range
                     const existingBooking = bookings.find(
                       (b) =>
                         b.date === selectedDate &&
                         b.courtId === court.id &&
-                        b.timeSlotId === slot.id &&
-                        b.bookingStatus !== 'CANCELLED'
+                        isSlotOccupiedByBooking(slot, b, timeSlots)
                     );
 
                     if (isCourtMaintenance) {

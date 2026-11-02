@@ -9,7 +9,7 @@ interface AdminTopBarProps {
   currentUser: User;
   onOpenMobileMenu: () => void;
   onQuickNewBooking: () => void;
-  onResetDemoData: () => void;
+  onRefreshData?: () => void;
 }
 
 export const AdminTopBar: React.FC<AdminTopBarProps> = ({
@@ -18,7 +18,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
   currentUser,
   onOpenMobileMenu,
   onQuickNewBooking,
-  onResetDemoData,
+  onRefreshData,
 }) => {
   const today = new Date();
   const dateFormatted = today.toLocaleDateString('id-ID', {
@@ -33,7 +33,7 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenMobileMenu}
-          className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
           aria-label="Open sidebar"
         >
           <Menu className="w-5 h-5" />
@@ -56,14 +56,16 @@ export const AdminTopBar: React.FC<AdminTopBarProps> = ({
           <span>{dateFormatted}</span>
         </div>
 
-        {/* Reset Demo Data Button */}
-        <button
-          onClick={onResetDemoData}
-          title="Kembalikan data demo awal"
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        {/* Safe UI Sync/Reload Button (DOES NOT RESET DATA) */}
+        {onRefreshData && (
+          <button
+            onClick={onRefreshData}
+            title="Sinkronisasi Tampilan Data (Aman)"
+            className="p-2 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 border border-slate-200 transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Quick New Booking Button */}
         <button
