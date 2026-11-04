@@ -8,6 +8,8 @@ import {
   CustomerType,
   Member,
   MemberStatus,
+  MemberPackage,
+  PackagePricingModel,
   MonthlyBookingGroup,
   PaymentMethod,
   PaymentStatus,
@@ -26,6 +28,7 @@ const STORAGE_KEYS = {
   SLOTS: 'gor_slots_v1',
   CUSTOMERS: 'gor_customers_v1',
   MEMBERS: 'gor_members_v1',
+  MEMBER_PACKAGES: 'gor_member_packages_v1',
   BOOKINGS: 'gor_bookings_v1',
   MONTHLY_BOOKINGS: 'gor_monthly_bookings_v1',
   TRANSACTIONS: 'gor_transactions_v1',
@@ -174,6 +177,66 @@ export const DEFAULT_MEMBERS: Member[] = [
     status: 'EXPIRED',
     notes: 'Keanggotaan sudah lewat masa aktif',
     createdAt: '2025-08-01',
+  },
+];
+
+// Initial Member Packages (Dapat dikonfigurasi Owner: jumlah sesi, durasi, harga, model harga)
+export const DEFAULT_MEMBER_PACKAGES: MemberPackage[] = [
+  {
+    id: 'pkg-1',
+    name: 'Member Bulanan Reguler (4 Sesi)',
+    pricingModel: 'FIXED_PACKAGE',
+    price: 300000,
+    memberHourlyRate: 25000,
+    sessionCount: 4,
+    durationHours: 3,
+    validityMonths: 1,
+    allowedDays: [],
+    description: '4 kali sesi pertemuan sebulan (1x seminggu), durasi 3 jam per sesi, tarif hemat Rp25.000/jam.',
+    active: true,
+    createdAt: '2026-01-01',
+  },
+  {
+    id: 'pkg-2',
+    name: 'Member Intensif (8 Sesi)',
+    pricingModel: 'FIXED_PACKAGE',
+    price: 400000,
+    memberHourlyRate: 25000,
+    sessionCount: 8,
+    durationHours: 2,
+    validityMonths: 1,
+    allowedDays: [],
+    description: '8 kali sesi pertemuan sebulan (2x seminggu), durasi 2 jam per sesi untuk intensif bermain.',
+    active: true,
+    createdAt: '2026-01-01',
+  },
+  {
+    id: 'pkg-3',
+    name: 'Member Komunitas (12 Sesi)',
+    pricingModel: 'FIXED_PACKAGE',
+    price: 900000,
+    memberHourlyRate: 25000,
+    sessionCount: 12,
+    durationHours: 3,
+    validityMonths: 1,
+    allowedDays: [],
+    description: '12 kali sesi pertemuan sebulan (3x seminggu), durasi 3 jam per sesi untuk klub / komunitas mabar.',
+    active: true,
+    createdAt: '2026-01-01',
+  },
+  {
+    id: 'pkg-4',
+    name: 'Member Fleksibel (Per Sesi)',
+    pricingModel: 'PER_SESSION',
+    price: 0,
+    memberHourlyRate: 25000,
+    sessionCount: 4,
+    durationHours: 3,
+    validityMonths: 1,
+    allowedDays: [],
+    description: 'Biaya dihitung otomatis berdasarkan jumlah sesi x durasi bermain x tarif member Rp25.000/jam.',
+    active: true,
+    createdAt: '2026-01-01',
   },
 ];
 
@@ -785,15 +848,38 @@ class StorageService {
   getMembers(): Member[] {
     const members = this.get<Member[]>(STORAGE_KEYS.MEMBERS, DEFAULT_MEMBERS);
     const today = getTodayString(0);
+    const allBookings = this.get<Booking[]>(STORAGE_KEYS.BOOKINGS, []);
     let changed = false;
 
-    // Check expiration dynamically
+    // Check expiration dynamically and compute session consumption
     const verified = members.map((m) => {
-      if (m.status === 'ACTIVE' && m.endDate && m.endDate < today) {
+      let status = m.status;
+      if (status === 'ACTIVE' && m.endDate && m.endDate < today) {
         changed = true;
-        return { ...m, status: 'EXPIRED' as MemberStatus };
+        status = 'EXPIRED';
       }
-      return m;
+
+      const mBookings = allBookings.filter(
+        (b) =>
+          b.memberId === m.id ||
+          (m.monthlyGroupId && b.monthlyGroupId === m.monthlyGroupId) ||
+          (m.phone && b.customerPhone === m.phone && b.bookingType === 'MONTHLY')
+      );
+
+      const usedCount = mBookings.filter(
+        (b) => b.bookingStatus === 'COMPLETED' || (b.bookingStatus !== 'CANCELLED' && b.date < today)
+      ).length;
+
+      const totalSessions = m.sessionCount || (mBookings.length > 0 ? mBookings.length : 4);
+      const remaining = Math.max(0, totalSessions - usedCount);
+
+      return {
+        ...m,
+        status,
+        sessionCount: totalSessions,
+        usedSessions: usedCount,
+        remainingSessions: remaining,
+      };
     });
 
     if (changed) {
@@ -925,6 +1011,91 @@ class StorageService {
     });
   }
 
+  // ==========================================
+  // MEMBER PACKAGES MASTER MANAGEMENT (Owner)
+  // ==========================================
+
+  getMemberPackages(): MemberPackage[] {
+    return this.get<MemberPackage[]>(STORAGE_KEYS.MEMBER_PACKAGES, DEFAULT_MEMBER_PACKAGES);
+  }
+
+  saveMemberPackages(packages: MemberPackage[]): void {
+    this.set(STORAGE_KEYS.MEMBER_PACKAGES, packages);
+  }
+
+  addMemberPackage(data: Omit<MemberPackage, 'id' | 'createdAt'>): MemberPackage {
+    const packages = this.getMemberPackages();
+    const newPkg: MemberPackage = {
+      ...data,
+      id: `pkg-${Date.now()}`,
+      createdAt: getTodayString(0),
+    };
+    packages.push(newPkg);
+    this.saveMemberPackages(packages);
+    return newPkg;
+  }
+
+  updateMemberPackage(id: string, updates: Partial<MemberPackage>): MemberPackage | null {
+    const packages = this.getMemberPackages();
+    const idx = packages.findIndex((p) => p.id === id);
+    if (idx === -1) return null;
+    packages[idx] = { ...packages[idx], ...updates, updatedAt: getTodayString(0) };
+    this.saveMemberPackages(packages);
+    return packages[idx];
+  }
+
+  deleteMemberPackage(id: string): boolean {
+    const packages = this.getMemberPackages();
+    const filtered = packages.filter((p) => p.id !== id);
+    if (filtered.length === packages.length) return false;
+    this.saveMemberPackages(filtered);
+    return true;
+  }
+
+  toggleMemberPackageActive(id: string): MemberPackage | null {
+    const packages = this.getMemberPackages();
+    const idx = packages.findIndex((p) => p.id === id);
+    if (idx === -1) return null;
+    packages[idx].active = !packages[idx].active;
+    this.saveMemberPackages(packages);
+    return packages[idx];
+  }
+
+  // ==========================================
+  // MEMBER SESSION DETAILS & MONITORING
+  // ==========================================
+
+  getMemberSessionDetails(memberId: string): {
+    totalSessions: number;
+    usedSessions: number;
+    remainingSessions: number;
+    bookings: Booking[];
+  } {
+    const member = this.getMemberById(memberId);
+    const bookings = this.getBookings().filter(
+      (b) =>
+        b.memberId === memberId ||
+        (member?.monthlyGroupId && b.monthlyGroupId === member.monthlyGroupId) ||
+        (member?.phone && b.customerPhone === member.phone && b.bookingType === 'MONTHLY')
+    );
+
+    // Sesi terpakai: status COMPLETED atau (bukan CANCELLED dan tanggal main < hari ini)
+    const today = getTodayString(0);
+    const usedCount = bookings.filter(
+      (b) => b.bookingStatus === 'COMPLETED' || (b.bookingStatus !== 'CANCELLED' && b.date < today)
+    ).length;
+
+    const totalSessions = member?.sessionCount || bookings.length || 4;
+    const remaining = Math.max(0, totalSessions - usedCount);
+
+    return {
+      totalSessions,
+      usedSessions: usedCount,
+      remainingSessions: remaining,
+      bookings: bookings.sort((a, b) => a.date.localeCompare(b.date)),
+    };
+  }
+
   getMemberStats(): {
     total: number;
     active: number;
@@ -937,7 +1108,6 @@ class StorageService {
     const today = getTodayString(0);
     const currentMonthPrefix = today.substring(0, 7); // YYYY-MM
 
-    // 14 days expiration threshold
     const soonDate = new Date();
     soonDate.setDate(soonDate.getDate() + 14);
     const soonStr = soonDate.toISOString().split('T')[0];
@@ -987,6 +1157,388 @@ class StorageService {
       bookingsThisMonth,
       totalTransactions,
     };
+  }
+
+  getMemberSessionMonitoringStats(): {
+    totalMembers: number;
+    activeMembers: number;
+    expiredMembers: number;
+    totalPackages: number;
+    totalSessionsThisMonth: number;
+    sessionsUsed: number;
+    sessionsRemaining: number;
+    expiringSoonMembers: number;
+    todayMemberSessions: Booking[];
+  } {
+    const members = this.getMembers();
+    const packages = this.getMemberPackages();
+    const bookings = this.getBookings();
+    const today = getTodayString(0);
+    const currentMonthPrefix = today.substring(0, 7);
+
+    const soonDate = new Date();
+    soonDate.setDate(soonDate.getDate() + 14);
+    const soonStr = soonDate.toISOString().split('T')[0];
+
+    let activeMembers = 0;
+    let expiredMembers = 0;
+    let expiringSoonMembers = 0;
+
+    for (const m of members) {
+      if (m.status === 'ACTIVE') {
+        activeMembers++;
+        if (m.endDate && m.endDate >= today && m.endDate <= soonStr) {
+          expiringSoonMembers++;
+        }
+      } else {
+        expiredMembers++;
+      }
+    }
+
+    const memberIds = new Set(members.map((m) => m.id));
+    const memberPhones = new Set(members.map((m) => m.phone.replace(/[^0-9]/g, '')));
+
+    let totalSessionsThisMonth = 0;
+    let sessionsUsed = 0;
+    let sessionsRemaining = 0;
+    const todayMemberSessions: Booking[] = [];
+
+    for (const b of bookings) {
+      const bPhoneClean = b.customerPhone.replace(/[^0-9]/g, '');
+      const isMemberBooking =
+        b.customerType === 'MEMBER' ||
+        (b.memberId && memberIds.has(b.memberId)) ||
+        memberPhones.has(bPhoneClean);
+
+      if (isMemberBooking) {
+        if (b.date === today && b.bookingStatus !== 'CANCELLED') {
+          todayMemberSessions.push(b);
+        }
+
+        if (b.date.startsWith(currentMonthPrefix)) {
+          totalSessionsThisMonth++;
+          if (b.bookingStatus === 'COMPLETED' || (b.bookingStatus !== 'CANCELLED' && b.date < today)) {
+            sessionsUsed++;
+          } else if (b.bookingStatus !== 'CANCELLED') {
+            sessionsRemaining++;
+          }
+        }
+      }
+    }
+
+    return {
+      totalMembers: members.length,
+      activeMembers,
+      expiredMembers,
+      totalPackages: packages.filter((p) => p.active).length,
+      totalSessionsThisMonth,
+      sessionsUsed,
+      sessionsRemaining,
+      expiringSoonMembers,
+      todayMemberSessions,
+    };
+  }
+
+  /**
+   * Complete Registration for Member Bulanan:
+   * 1. Validates package and schedule
+   * 2. Checks slot availability across full duration
+   * 3. Prevents double booking
+   * 4. Automatically creates Member record + MonthlyBookingGroup + child Bookings
+   * 5. Syncs transaction
+   */
+  registerMemberWithPackageAndSchedule(input: {
+    name: string;
+    phone: string;
+    address?: string;
+    packageId?: string;
+    packageName?: string;
+    pricingModel?: PackagePricingModel;
+    startDate: string;
+    endDate: string;
+    courtId: string;
+    timeSlotId: string;
+    selectedDays: number[];
+    selectedDaysLabels: string[];
+    sessionCount: number;
+    durationHours: number;
+    customHourlyRate?: number;
+    totalAmount: number;
+    depositAmount: number;
+    paymentMethod: PaymentMethod;
+    paymentStatus?: PaymentStatus;
+    notes?: string;
+  }): {
+    success: boolean;
+    member?: Member;
+    monthlyBooking?: MonthlyBookingGroup;
+    bookings?: Booking[];
+    error?: string;
+    conflictingDates?: {
+      date: string;
+      formattedDate: string;
+      courtName: string;
+      timeSlotLabel: string;
+      reason: string;
+    }[];
+  } {
+    const durationHours = Math.max(1, Number(input.durationHours) || 1);
+
+    // 1. Availability and Anti Double Booking check across all generated dates
+    const check = this.checkMonthlyBookingAvailability(
+      input.startDate,
+      input.endDate,
+      input.courtId,
+      input.timeSlotId,
+      input.selectedDays,
+      durationHours
+    );
+
+    if (!check.isAvailable) {
+      return {
+        success: false,
+        error: check.message || 'Jadwal bertabrakan dengan booking lain.',
+        conflictingDates: check.conflictingDates,
+      };
+    }
+
+    const { dates } = check;
+    if (dates.length === 0) {
+      return {
+        success: false,
+        error: 'Tidak ada tanggal yang cocok dalam rentang dan hari yang dipilih.',
+      };
+    }
+
+    // 2. Resolve Court & Slot
+    const courts = this.getCourts();
+    const court = courts.find((c) => c.id === input.courtId);
+    if (!court) {
+      return { success: false, error: 'Lapangan tidak ditemukan.' };
+    }
+    const slots = this.getTimeSlots();
+    const slot = slots.find((s) => s.id === input.timeSlotId);
+    if (!slot) {
+      return { success: false, error: 'Sesi jam tidak ditemukan.' };
+    }
+
+    const applicableHourlyRate = input.customHourlyRate !== undefined && input.customHourlyRate > 0
+      ? input.customHourlyRate
+      : (court.memberHourlyRate || 25000);
+
+    // 3. Payment math
+    const totalAmount = input.totalAmount;
+    const depositAmount = input.depositAmount;
+    const remainingAmount = Math.max(0, totalAmount - depositAmount);
+
+    let paymentStatus = input.paymentStatus;
+    if (!paymentStatus) {
+      if (depositAmount >= totalAmount && totalAmount > 0) {
+        paymentStatus = 'LUNAS';
+      } else if (depositAmount > 0) {
+        paymentStatus = 'DP';
+      } else {
+        paymentStatus = 'BELUM BAYAR';
+      }
+    }
+
+    const bookingStatus: BookingStatus = depositAmount > 0 ? 'CONFIRMED' : 'PENDING';
+
+    const customer = this.findOrCreateCustomer(
+      input.name,
+      input.phone,
+      `Member Bulanan (${input.packageName || 'Paket Member'})`
+    );
+
+    // 4. Create Member
+    const members = this.getMembers();
+    const year = new Date().getFullYear();
+    const nextNum = members.length + 1;
+    const memberCode = `MBR-${year}-${String(nextNum).padStart(3, '0')}`;
+    const memberId = `mbr-${Date.now()}`;
+    const groupId = `mbkg-${Date.now()}`;
+    const dateCode = input.startDate.replace(/-/g, '').substring(2, 6);
+    const randomCode = Math.floor(100 + Math.random() * 900);
+    const groupCode = `MBKG-${dateCode}-${randomCode}`;
+
+    const startTime = slot.startTime;
+    const endTime = addHoursToTime(startTime, durationHours);
+    const timeSlotLabel = durationHours > 1
+      ? `${startTime} - ${endTime} (${durationHours} Jam)`
+      : slot.label;
+
+    const newMember: Member = {
+      id: memberId,
+      memberCode,
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+      address: input.address?.trim() || '',
+      startDate: input.startDate,
+      endDate: input.endDate,
+      membershipType: input.packageName || 'Member Bulanan Reguler',
+      packageId: input.packageId,
+      packageName: input.packageName,
+      pricingModel: input.pricingModel || 'FIXED_PACKAGE',
+      packagePrice: totalAmount,
+      sessionCount: input.sessionCount,
+      durationHours,
+      usedSessions: 0,
+      remainingSessions: input.sessionCount,
+      selectedDays: input.selectedDays,
+      selectedDaysLabels: input.selectedDaysLabels,
+      courtId: court.id,
+      courtName: court.name,
+      timeSlotId: slot.id,
+      timeSlotLabel,
+      monthlyGroupId: groupId,
+      customHourlyRate: applicableHourlyRate,
+      totalAmount,
+      depositAmount,
+      remainingAmount,
+      paymentStatus,
+      paymentMethod: input.paymentMethod,
+      status: 'ACTIVE',
+      notes: input.notes?.trim() || '',
+      createdAt: getTodayString(0),
+    };
+
+    members.unshift(newMember);
+    this.saveMembers(members);
+
+    // 5. Generate child Bookings into main calendar
+    const allBookings = this.getBookings();
+    const createdBookings: Booking[] = [];
+    const bookingIds: string[] = [];
+
+    const perSessionTotal = Math.round(totalAmount / dates.length);
+    const perSessionDeposit = Math.round(depositAmount / dates.length);
+    const perSessionRemaining = Math.max(0, perSessionTotal - perSessionDeposit);
+
+    dates.forEach((d, idx) => {
+      const bkgId = `bkg-${Date.now()}-${idx + 1}`;
+      const bkgCode = `${groupCode}-S${String(idx + 1).padStart(2, '0')}`;
+      bookingIds.push(bkgId);
+
+      const bkg: Booking = {
+        id: bkgId,
+        bookingCode: bkgCode,
+        customerId: customer.id,
+        customerName: input.name.trim(),
+        customerPhone: input.phone.trim(),
+        courtId: court.id,
+        courtName: court.name,
+        date: d,
+        timeSlotId: slot.id,
+        timeSlotLabel,
+        durationHours,
+        totalAmount: perSessionTotal,
+        depositAmount: perSessionDeposit,
+        remainingAmount: perSessionRemaining,
+        bookingStatus,
+        paymentStatus,
+        paymentMethod: input.paymentMethod,
+        notes: `Member ${memberCode}: Sesi ${idx + 1}/${dates.length} (${input.notes || ''})`,
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        source: 'admin_manual',
+        bookingType: 'MONTHLY',
+        monthlyGroupId: groupId,
+        customerType: 'MEMBER',
+        memberId: memberId,
+        ratePerHour: applicableHourlyRate,
+      };
+
+      createdBookings.push(bkg);
+      allBookings.push(bkg);
+    });
+
+    this.saveBookings(allBookings);
+
+    // 6. Create MonthlyBookingGroup
+    const monthlyGroup: MonthlyBookingGroup = {
+      id: groupId,
+      groupCode,
+      customerId: customer.id,
+      customerName: input.name.trim(),
+      customerPhone: input.phone.trim(),
+      courtId: court.id,
+      courtName: court.name,
+      periodLabel: `${input.startDate} s/d ${input.endDate}`,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      selectedDays: input.selectedDays,
+      selectedDaysLabels: input.selectedDaysLabels,
+      timeSlotId: slot.id,
+      timeSlotLabel,
+      durationHours,
+      sessionCount: dates.length,
+      ratePerSession: perSessionTotal,
+      totalAmount,
+      depositAmount,
+      remainingAmount,
+      bookingStatus,
+      paymentStatus,
+      paymentMethod: input.paymentMethod,
+      notes: input.notes,
+      bookingIds,
+      dates,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      customerType: 'MEMBER',
+      memberId,
+      ratePerHour: applicableHourlyRate,
+    };
+
+    const monthlyGroups = this.getMonthlyBookings();
+    monthlyGroups.unshift(monthlyGroup);
+    this.saveMonthlyBookings(monthlyGroups);
+
+    // 7. Record transaction if DP or LUNAS
+    if (depositAmount > 0) {
+      const transactions = this.getTransactions();
+      const count = transactions.length + 1;
+      const dateStr = input.startDate.replace(/-/g, '');
+      const newTrx: Transaction = {
+        id: `trx-${Date.now()}`,
+        transactionNumber: `TRX-${dateStr}-${String(count).padStart(3, '0')}`,
+        bookingId: groupId,
+        bookingCode: groupCode,
+        customerId: customer.id,
+        customerName: input.name.trim(),
+        courtName: court.name,
+        timeSlotLabel: `${dates.length} Sesi Member (${timeSlotLabel})`,
+        date: input.startDate,
+        totalAmount,
+        depositAmount,
+        remainingAmount,
+        paymentMethod: input.paymentMethod,
+        paymentStatus,
+        notes: `Pembayaran Paket Member ${input.packageName || ''} (${memberCode})`,
+        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        customerType: 'MEMBER',
+      };
+      transactions.unshift(newTrx);
+      this.saveTransactions(transactions);
+    }
+
+    return {
+      success: true,
+      member: newMember,
+      monthlyBooking: monthlyGroup,
+      bookings: createdBookings,
+    };
+  }
+
+  /**
+   * Update Status of a specific session in Member booking
+   * When cancelled, quota is preserved.
+   */
+  updateMemberSessionStatus(bookingId: string, status: BookingStatus): boolean {
+    const bookings = this.getBookings();
+    const idx = bookings.findIndex((b) => b.id === bookingId);
+    if (idx === -1) return false;
+
+    bookings[idx].bookingStatus = status;
+    this.saveBookings(bookings);
+    return true;
   }
 
   // Time Slots CRUD

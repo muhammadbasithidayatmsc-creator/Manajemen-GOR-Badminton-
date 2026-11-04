@@ -17,6 +17,7 @@ import {
   Repeat,
   Info,
   Timer,
+  Crown,
 } from 'lucide-react';
 import {
   Booking,
@@ -25,6 +26,7 @@ import {
   Court,
   MonthlyBookingGroup,
   TimeSlot,
+  MemberPackage,
 } from '../../types';
 import {
   formatRupiah,
@@ -120,9 +122,17 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const [monthlyStartDate, setMonthlyStartDate] = useState<string>(defaultStartDate);
   const [monthlyEndDate, setMonthlyEndDate] = useState<string>(defaultEndDate);
   const [monthlySelectedDays, setMonthlySelectedDays] = useState<number[]>([1]); // default: Senin
-  const [monthlyDuration, setMonthlyDuration] = useState<number>(1);
+  const [monthlyDuration, setMonthlyDuration] = useState<number>(3);
   const [isCustomMonthlyDuration, setIsCustomMonthlyDuration] = useState<boolean>(false);
   const [customMonthlyHours, setCustomMonthlyHours] = useState<number>(3);
+
+  // Member Packages from Owner
+  const memberPackages = useMemo(() => store.getMemberPackages().filter((p) => p.active), [isOpen]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>(() => memberPackages[0]?.id || '');
+  const selectedPackage = useMemo(
+    () => memberPackages.find((p) => p.id === selectedPackageId) || memberPackages[0],
+    [memberPackages, selectedPackageId]
+  );
 
   // Auto-invoice state
   const [showInvoice, setShowInvoice] = useState(false);
@@ -260,8 +270,14 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
   const regularDeposit = Math.round(regularTotal * 0.5);
 
   const monthlySessionCount = monthlyDates.length;
-  const monthlyRatePerSession = hourlyRate * activeDurationHours;
-  const monthlyTotal = monthlyRatePerSession * monthlySessionCount;
+  const memberRate = selectedPackage?.memberHourlyRate || selectedCourt?.memberHourlyRate || 25000;
+
+  let monthlyTotal = 0;
+  if (selectedPackage && selectedPackage.pricingModel === 'FIXED_PACKAGE') {
+    monthlyTotal = selectedPackage.price;
+  } else {
+    monthlyTotal = memberRate * activeDurationHours * monthlySessionCount;
+  }
   const monthlyDeposit = Math.round(monthlyTotal * 0.5);
 
   if (!isOpen && !showInvoice) return null;
@@ -442,8 +458,12 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         depositAmount: monthlyDeposit,
         bookingStatus: 'PENDING',
         paymentMethod: 'TRANSFER',
-        notes: customerNotes.trim() || undefined,
+        notes: selectedPackage
+          ? `Paket: ${selectedPackage.name}${customerNotes.trim() ? ` - ${customerNotes.trim()}` : ''}`
+          : customerNotes.trim() || undefined,
         source: 'public_whatsapp',
+        customerType: 'MEMBER',
+        ratePerHour: memberRate,
       });
 
       if (!createResult.success || !createResult.monthlyBooking) {
@@ -617,8 +637,60 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
                 <div className="space-y-4 p-4 rounded-2xl bg-purple-950/20 border border-purple-900/40">
                   <div className="flex items-center gap-2 text-purple-300 font-bold text-sm uppercase tracking-wider">
                     <Repeat className="w-4 h-4 text-purple-400" />
-                    <span>1. Periode & Pola Hari Rutin Bulanan</span>
+                    <span>1. Paket & Periode Rutin Bulanan</span>
                   </div>
+
+                  {/* Pilihan Master Paket Member Bulanan */}
+                  {memberPackages.length > 0 && (
+                    <div className="space-y-1.5 pb-2 border-b border-purple-900/40">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-200">
+                          Pilihan Paket Member Bulanan:
+                        </label>
+                        {selectedPackage && (
+                          <span className="text-[11px] text-amber-300 font-bold">
+                            Tarif Khusus {formatRupiah(selectedPackage.memberHourlyRate || 25000)}/jam
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {memberPackages.map((pkg) => {
+                          const isSelected = selectedPackageId === pkg.id;
+                          return (
+                            <button
+                              type="button"
+                              key={pkg.id}
+                              onClick={() => {
+                                setSelectedPackageId(pkg.id);
+                                if (pkg.durationHours) {
+                                  setMonthlyDuration(pkg.durationHours);
+                                  setCustomMonthlyHours(pkg.durationHours);
+                                }
+                              }}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-purple-900/60 border-purple-400 ring-1 ring-purple-400 shadow-sm'
+                                  : 'bg-slate-950/80 border-purple-900/30 hover:border-purple-800'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-white flex items-center gap-1">
+                                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>{pkg.name}</span>
+                                </span>
+                                <span className="text-[11px] font-extrabold text-emerald-400">
+                                  {pkg.pricingModel === 'FIXED_PACKAGE' ? formatRupiah(pkg.price) : `${formatRupiah(pkg.memberHourlyRate)}/jam`}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {pkg.sessionCount}x Sesi &bull; {pkg.durationHours} Jam/Sesi &bull; {pkg.pricingModel === 'FIXED_PACKAGE' ? 'Fixed Bulanan' : 'Per Sesi'}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Date range */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

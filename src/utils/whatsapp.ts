@@ -436,3 +436,229 @@ export function generateDirectInquiryWhatsAppUrl(settings?: BusinessSettings): s
   const text = `Halo Admin ${gorName}, saya ingin menanyakan informasi jadwal ketersediaan lapangan dan paket member bulanan (Tarif Khusus Rp25.000/jam).`;
   return `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
 }
+
+/**
+ * Requirement 8: Kirim Informasi Membership via WhatsApp
+ */
+export function generateMemberInfoWhatsAppUrl(params: {
+  settings?: BusinessSettings;
+  member: {
+    name: string;
+    phone: string;
+    memberCode: string;
+    membershipType: string;
+    packageName?: string;
+    startDate: string;
+    endDate: string;
+    sessionCount?: number;
+    durationHours?: number;
+    courtName?: string;
+    timeSlotLabel?: string;
+    selectedDaysLabels?: string[];
+    customHourlyRate?: number;
+    totalAmount?: number;
+    depositAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
+    paymentMethod?: string;
+    notes?: string;
+  };
+  sendToCustomer?: boolean;
+}): string {
+  const { settings, member, sendToCustomer = true } = params;
+  const targetPhone = sendToCustomer
+    ? cleanPhoneNumber(member.phone)
+    : normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
+
+  const primaryBank = settings?.bankAccounts && settings.bankAccounts.length > 0
+    ? settings.bankAccounts[0]
+    : { bankName: 'BCA', accountNumber: '8820-1234-56', accountHolder: 'GOR Badminton' };
+
+  const total = member.totalAmount || 0;
+  const dp = member.depositAmount || 0;
+  const sisa = member.remainingAmount !== undefined ? member.remainingAmount : Math.max(0, total - dp);
+
+  const lines = [
+    `🏸 INFORMASI MEMBERSHIP GOR BADMINTON — ${settings?.gorName || settings?.name || 'GOR SMASH ARENA'}`,
+    '',
+    `Halo Sdr/i *${member.name.trim()}*, berikut rincian keanggotaan Member Bulanan Anda:`,
+    '',
+    `👑 *DATA MEMBERSHIP*`,
+    `• ID Member: *${member.memberCode}*`,
+    `• Nama Member: ${member.name.trim()}`,
+    `• WhatsApp: ${member.phone.trim()}`,
+    `• Paket: *${member.packageName || member.membershipType}*`,
+    `• Periode: ${member.startDate} s/d ${member.endDate}`,
+    `• Kuota Sesi: *${member.sessionCount || 4} Sesi Pertemuan*`,
+    `• Durasi Bermain: *${member.durationHours || 3} Jam per Sesi*`,
+    `• Lapangan: ${member.courtName || 'Court Badminton'}`,
+    `• Jadwal Rutin: ${member.selectedDaysLabels && member.selectedDaysLabels.length > 0 ? `Setiap ${member.selectedDaysLabels.join(' & ')}` : 'Sesuai Jadwal'} (${member.timeSlotLabel || '-'})`,
+    `• Tarif Spesial Member: Rp${(member.customHourlyRate || 25000).toLocaleString('id-ID')}/jam`,
+    '',
+    `💰 *RINCIAN PEMBAYARAN*`,
+    `• Total Biaya Paket: ${formatRupiah(total)}`,
+    `• Pembayaran Masuk (DP): ${formatRupiah(dp)}`,
+    `• Sisa Tagihan: *${formatRupiah(sisa)}*`,
+    `• Status Pembayaran: *${member.paymentStatus || (dp >= total && total > 0 ? 'LUNAS' : dp > 0 ? 'DP' : 'BELUM BAYAR')}*`,
+    `• Metode: ${member.paymentMethod || 'TRANSFER'}`,
+    '',
+    `🏦 *REKENING PEMBAYARAN RESMI GOR*`,
+    `• Bank: ${primaryBank.bankName}`,
+    `• No. Rekening: ${primaryBank.accountNumber}`,
+    `• Atas Nama: ${primaryBank.accountHolder}`,
+    '',
+    `📌 *Petunjuk & Catatan:*`,
+    `${settings?.paymentInstructions || settings?.paymentNotes || 'Harap simpan bukti transfer untuk verifikasi administrasi.'}`,
+    member.notes ? `Catatan: ${member.notes}` : '',
+    '',
+    `Terima kasih telah bergabung menjadi Member Resmi kami. Selamat bermain dan jaga selalu sportivitas! 🙏🏸`,
+  ].filter(Boolean);
+
+  return `https://wa.me/${targetPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+/**
+ * Requirement 8: Kirim Jadwal Pertemuan Member via WhatsApp
+ */
+export function generateMemberScheduleWhatsAppUrl(params: {
+  settings?: BusinessSettings;
+  member: {
+    name: string;
+    phone: string;
+    memberCode: string;
+    membershipType: string;
+    packageName?: string;
+    startDate: string;
+    endDate: string;
+    sessionCount?: number;
+    durationHours?: number;
+    courtName?: string;
+    timeSlotLabel?: string;
+    selectedDaysLabels?: string[];
+  };
+  sessionDates: string[];
+  sendToCustomer?: boolean;
+}): string {
+  const { settings, member, sessionDates, sendToCustomer = true } = params;
+  const targetPhone = sendToCustomer
+    ? cleanPhoneNumber(member.phone)
+    : normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
+
+  const formattedSchedule = sessionDates.map((d, idx) => {
+    try {
+      const [y, m, dt] = d.split('-').map(Number);
+      const o = new Date(y, m - 1, dt);
+      const dayLabel = o.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      return `${idx + 1}. ${dayLabel} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
+    } catch {
+      return `${idx + 1}. ${d} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
+    }
+  }).join('\n');
+
+  const lines = [
+    `📅 JADWAL PERTEMUAN RESMI MEMBER — ${settings?.gorName || settings?.name || 'GOR SMASH ARENA'}`,
+    '',
+    `Halo *${member.name.trim()}* (${member.memberCode}),`,
+    `Berikut jadwal resmi sesi bermain paket *${member.packageName || member.membershipType}* Anda:`,
+    '',
+    `🏸 Lapangan: *${member.courtName || 'Court Utama'}*`,
+    `⏰ Jam Main: *${member.timeSlotLabel || ''} (${member.durationHours || 3} Jam)*`,
+    `📊 Total Sesi: *${sessionDates.length} Pertemuan Terjadwal*`,
+    '',
+    `📋 *DAFTAR TANGGAL PERTEMUAN:*`,
+    formattedSchedule,
+    '',
+    `⚠️ *Ketentuan Sesi Member:*`,
+    `• Harap hadir 10 menit sebelum jam bermain dimulai.`,
+    `• Wajib menggunakan sepatu badminton sol karet / non-marking.`,
+    `• Apabila berhalangan hadir, harap konfirmasi minimal H-1 untuk opsi penyesuaian jadwal.`,
+    '',
+    `Sampai jumpa di lapangan! Salam olahraga 🏸`,
+  ];
+
+  return `https://wa.me/${targetPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+/**
+ * Requirement 8: Kirim Invoice Membership via WhatsApp
+ */
+export function generateMemberInvoiceWhatsAppUrl(params: {
+  settings?: BusinessSettings;
+  member: {
+    name: string;
+    phone: string;
+    memberCode: string;
+    membershipType: string;
+    packageName?: string;
+    startDate: string;
+    endDate: string;
+    sessionCount?: number;
+    durationHours?: number;
+    courtName?: string;
+    totalAmount?: number;
+    depositAmount?: number;
+    remainingAmount?: number;
+    paymentStatus?: string;
+    paymentMethod?: string;
+  };
+  invoiceCode?: string;
+  sendToCustomer?: boolean;
+}): string {
+  const { settings, member, invoiceCode, sendToCustomer = true } = params;
+  const targetPhone = sendToCustomer
+    ? cleanPhoneNumber(member.phone)
+    : normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
+
+  const inv = invoiceCode || `INV-MBR-${member.memberCode}`;
+  const total = member.totalAmount || 0;
+  const dp = member.depositAmount || 0;
+  const sisa = member.remainingAmount !== undefined ? member.remainingAmount : Math.max(0, total - dp);
+
+  const primaryBank = settings?.bankAccounts && settings.bankAccounts.length > 0
+    ? settings.bankAccounts[0]
+    : { bankName: 'BCA', accountNumber: '8820-1234-56', accountHolder: 'GOR Badminton' };
+
+  const lines = [
+    `🧾 INVOICE RESMI MEMBERSHIP — ${settings?.gorName || settings?.name || 'GOR SMASH ARENA'}`,
+    '',
+    `No. Invoice: *${inv}*`,
+    `Tanggal Terbit: ${getTodayFormatted()}`,
+    '',
+    `👤 *Penerima:*`,
+    `Nama: ${member.name.trim()}`,
+    `No. Member: *${member.memberCode}*`,
+    `WhatsApp: ${member.phone.trim()}`,
+    '',
+    `📦 *Item Membership:*`,
+    `• Paket: ${member.packageName || member.membershipType}`,
+    `• Periode: ${member.startDate} s/d ${member.endDate}`,
+    `• Jumlah: ${member.sessionCount || 4} Sesi @ ${member.durationHours || 3} Jam (${member.courtName || 'Court'})`,
+    '',
+    `💵 *Ringkasan Biaya:*`,
+    `Total Tagihan: *${formatRupiah(total)}*`,
+    `DP / Pembayaran Masuk: ${formatRupiah(dp)}`,
+    `Sisa Pembayaran: *${formatRupiah(sisa)}*`,
+    `Status Tagihan: *${member.paymentStatus || (dp >= total && total > 0 ? 'LUNAS' : dp > 0 ? 'DP' : 'BELUM BAYAR')}*`,
+    '',
+    `🏦 *Informasi Rekening Transfer:*`,
+    `Bank: ${primaryBank.bankName}`,
+    `No. Rekening: ${primaryBank.accountNumber}`,
+    `Atas Nama: ${primaryBank.accountHolder}`,
+    '',
+    `Terima kasih telah mempercayakan rental lapangan bulanan kepada kami. 🙏`,
+  ];
+
+  return `https://wa.me/${targetPhone}?text=${encodeURIComponent(lines.join('\n'))}`;
+}
+
+function getTodayFormatted(): string {
+  try {
+    return new Date().toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}

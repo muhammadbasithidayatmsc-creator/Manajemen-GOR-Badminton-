@@ -41,6 +41,7 @@ export type PaymentMethod = 'CASH' | 'TRANSFER' | 'QRIS' | 'LAINNYA';
 export type BookingType = 'REGULAR' | 'MONTHLY';
 export type CustomerType = 'REGULAR' | 'MEMBER';
 export type MemberStatus = 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
+export type PackagePricingModel = 'FIXED_PACKAGE' | 'PER_SESSION';
 
 export interface Customer {
   id: string;
@@ -48,6 +49,24 @@ export interface Customer {
   phone: string;
   notes?: string;
   createdAt: string;
+}
+
+export interface MemberPackage {
+  id: string;
+  name: string; // e.g. "Member Bulanan Reguler (4 Sesi)"
+  pricingModel: PackagePricingModel; // 'FIXED_PACKAGE' | 'PER_SESSION'
+  price: number; // Harga total paket per bulan (e.g. 300000)
+  memberHourlyRate: number; // Tarif khusus per jam (e.g. 25000)
+  sessionCount: number; // Jumlah sesi/pertemuan per bulan (e.g. 4, 8, 12, or custom)
+  durationHours: number; // Durasi jam bermain per sesi (e.g. 3)
+  validityMonths: number; // Masa berlaku paket (default 1 bulan)
+  allowedDays?: number[]; // Hari yang diperbolehkan (0=Minggu, 1=Senin, ..., 6=Sabtu)
+  defaultCourtId?: string;
+  defaultTimeSlotId?: string;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Member {
@@ -59,7 +78,27 @@ export interface Member {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   membershipType: string; // e.g. "Member Bulanan Reguler"
+  packageId?: string;
+  packageName?: string;
+  pricingModel?: PackagePricingModel;
+  packagePrice?: number;
+  sessionCount?: number; // e.g. 4, 8, 12, etc.
+  durationHours?: number; // e.g. 3 jam
+  usedSessions?: number; // Sessions completed or past
+  remainingSessions?: number; // Total - Used
+  selectedDays?: number[];
+  selectedDaysLabels?: string[];
+  courtId?: string;
+  courtName?: string;
+  timeSlotId?: string;
+  timeSlotLabel?: string;
+  monthlyGroupId?: string;
   customHourlyRate?: number; // e.g. 25000
+  totalAmount?: number;
+  depositAmount?: number;
+  remainingAmount?: number;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   status: MemberStatus;
   notes?: string;
   createdAt: string;

@@ -11,6 +11,7 @@ import {
   Transaction,
   User,
   Member,
+  MemberPackage,
 } from '../../types';
 import { store } from '../../services/store';
 import { AdminSidebar, AdminView } from './AdminSidebar';
@@ -20,6 +21,7 @@ import { ScheduleGridView } from './ScheduleGridView';
 import { BookingListView } from './BookingListView';
 import { CustomerListView } from './CustomerListView';
 import { MemberManagementView } from './MemberManagementView';
+import { MemberPackageManagementView } from './MemberPackageManagementView';
 import { TransactionListView } from './TransactionListView';
 import { ReportView } from './ReportView';
 import { CourtManagementView } from './CourtManagementView';
@@ -55,6 +57,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [monthlyBookings, setMonthlyBookings] = useState<MonthlyBookingGroup[]>(() => store.getMonthlyBookings());
   const [customers, setCustomers] = useState<Customer[]>(() => store.getCustomers());
   const [members, setMembers] = useState<Member[]>(() => store.getMembers());
+  const [packages, setPackages] = useState<MemberPackage[]>(() => store.getMemberPackages());
   const [transactions, setTransactions] = useState<Transaction[]>(() => store.getTransactions());
   const [users, setUsers] = useState<User[]>(() => store.getUsers());
 
@@ -67,6 +70,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     setMonthlyBookings(store.getMonthlyBookings());
     setCustomers(store.getCustomers());
     setMembers(store.getMembers());
+    setPackages(store.getMemberPackages());
     setTransactions(store.getTransactions());
     setUsers(store.getUsers());
   };
@@ -287,7 +291,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     },
     'member-bulanan': {
       title: 'Manajemen Member Bulanan',
-      subtitle: 'Data member bulanan VIP, tarif khusus Rp25.000/jam, masa aktif, dan riwayat booking',
+      subtitle: 'Monitoring sesi, pendaftaran paket, kuota pertemuan, tarif khusus, dan integrasi jadwal',
+    },
+    'paket-member': {
+      title: 'Pengaturan Paket Member Bulanan',
+      subtitle: 'Master konfigurasi paket membership, kuota sesi (4x/8x/12x/kustom), durasi, dan tarif khusus (Khusus Owner)',
     },
     transaksi: {
       title: 'Pencatatan Transaksi Manual',
@@ -407,6 +415,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               members={members}
               bookings={bookings}
               transactions={transactions}
+              packages={packages}
+              courts={courts}
+              timeSlots={timeSlots}
+              onRefresh={reloadData}
+              onNavigateToPackages={() => setActiveView('paket-member')}
+            />
+          )}
+
+          {activeView === 'paket-member' && (
+            <MemberPackageManagementView
+              packages={packages}
               onRefresh={reloadData}
             />
           )}

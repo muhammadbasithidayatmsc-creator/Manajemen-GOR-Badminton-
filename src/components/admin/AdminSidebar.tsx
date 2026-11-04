@@ -16,6 +16,7 @@ import {
   X,
   Shield,
   Crown,
+  Layers,
 } from 'lucide-react';
 import { BusinessSettings, User } from '../../types';
 
@@ -25,6 +26,7 @@ export type AdminView =
   | 'booking'
   | 'customer'
   | 'member-bulanan'
+  | 'paket-member'
   | 'transaksi'
   | 'laporan'
   | 'lapangan'
@@ -68,6 +70,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { id: 'booking', label: 'Booking', icon: CalendarCheck },
     { id: 'customer', label: 'Customer', icon: Users },
     { id: 'member-bulanan', label: 'Member Bulanan', icon: Crown, ownerOnly: false },
+    { id: 'paket-member', label: 'Paket Member', icon: Layers, ownerOnly: true },
     { id: 'transaksi', label: 'Transaksi', icon: Receipt },
     // Owner Only Menus
     { id: 'laporan', label: 'Laporan', icon: FileBarChart2, ownerOnly: true },
