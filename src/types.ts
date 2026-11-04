@@ -21,7 +21,8 @@ export interface Court {
   code: string;
   status: CourtStatus;
   notes?: string;
-  hourlyRate: number; // Disimpan untuk admin kalkulasi transaksi, TIDAK ditampilkan di jadwal publik
+  hourlyRate: number; // Tarif Reguler per jam (default Rp30.000)
+  memberHourlyRate?: number; // Tarif Khusus Member Bulanan per jam (default Rp25.000)
   surfaceType?: string;
 }
 
@@ -38,11 +39,28 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
 export type PaymentStatus = 'BELUM BAYAR' | 'DP' | 'LUNAS';
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'QRIS' | 'LAINNYA';
 export type BookingType = 'REGULAR' | 'MONTHLY';
+export type CustomerType = 'REGULAR' | 'MEMBER';
+export type MemberStatus = 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
 
 export interface Customer {
   id: string;
   name: string;
   phone: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface Member {
+  id: string;
+  memberCode: string; // e.g. "MBR-2026-001"
+  name: string;
+  phone: string;
+  address?: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  membershipType: string; // e.g. "Member Bulanan Reguler"
+  customHourlyRate?: number; // e.g. 25000
+  status: MemberStatus;
   notes?: string;
   createdAt: string;
 }
@@ -75,6 +93,9 @@ export interface MonthlyBookingGroup {
   bookingIds: string[]; // References to individual Booking records generated
   dates: string[]; // List of all dates generated
   createdAt: string;
+  customerType?: CustomerType;
+  memberId?: string;
+  ratePerHour?: number;
 }
 
 export interface Booking {
@@ -100,6 +121,9 @@ export interface Booking {
   source?: 'public_whatsapp' | 'admin_manual';
   bookingType?: BookingType;
   monthlyGroupId?: string;
+  customerType?: CustomerType; // 'REGULAR' | 'MEMBER'
+  memberId?: string;
+  ratePerHour?: number; // Snapshot of hourly rate applied (e.g. 30000 or 25000)
 }
 
 export interface Transaction {
@@ -119,6 +143,7 @@ export interface Transaction {
   paymentStatus: PaymentStatus;
   notes?: string;
   createdAt: string;
+  customerType?: CustomerType;
 }
 
 export interface BankAccount {
@@ -139,6 +164,7 @@ export interface BusinessSettings {
   facilities: string[];
   defaultHourlyRate: number;
   hourlyRateDefault?: number;
+  defaultMemberHourlyRate?: number;
   bankInfo: string;
   bankAccounts: BankAccount[];
   paymentNotes?: string;

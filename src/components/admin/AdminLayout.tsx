@@ -10,6 +10,7 @@ import {
   TimeSlot,
   Transaction,
   User,
+  Member,
 } from '../../types';
 import { store } from '../../services/store';
 import { AdminSidebar, AdminView } from './AdminSidebar';
@@ -18,6 +19,7 @@ import { DashboardView } from './DashboardView';
 import { ScheduleGridView } from './ScheduleGridView';
 import { BookingListView } from './BookingListView';
 import { CustomerListView } from './CustomerListView';
+import { MemberManagementView } from './MemberManagementView';
 import { TransactionListView } from './TransactionListView';
 import { ReportView } from './ReportView';
 import { CourtManagementView } from './CourtManagementView';
@@ -52,6 +54,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [bookings, setBookings] = useState<Booking[]>(() => store.getBookings());
   const [monthlyBookings, setMonthlyBookings] = useState<MonthlyBookingGroup[]>(() => store.getMonthlyBookings());
   const [customers, setCustomers] = useState<Customer[]>(() => store.getCustomers());
+  const [members, setMembers] = useState<Member[]>(() => store.getMembers());
   const [transactions, setTransactions] = useState<Transaction[]>(() => store.getTransactions());
   const [users, setUsers] = useState<User[]>(() => store.getUsers());
 
@@ -63,6 +66,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     setBookings(store.getBookings());
     setMonthlyBookings(store.getMonthlyBookings());
     setCustomers(store.getCustomers());
+    setMembers(store.getMembers());
     setTransactions(store.getTransactions());
     setUsers(store.getUsers());
   };
@@ -281,6 +285,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       title: 'Database Customer',
       subtitle: 'Data pelanggan, riwayat booking, dan total transaksi',
     },
+    'member-bulanan': {
+      title: 'Manajemen Member Bulanan',
+      subtitle: 'Data member bulanan VIP, tarif khusus Rp25.000/jam, masa aktif, dan riwayat booking',
+    },
     transaksi: {
       title: 'Pencatatan Transaksi Manual',
       subtitle: 'Log kas masuk, transfer bank, QRIS, dan pencetakan struk',
@@ -394,6 +402,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             />
           )}
 
+          {activeView === 'member-bulanan' && (
+            <MemberManagementView
+              members={members}
+              bookings={bookings}
+              transactions={transactions}
+              onRefresh={reloadData}
+            />
+          )}
+
           {activeView === 'transaksi' && (
             <TransactionListView
               transactions={transactions}
@@ -461,6 +478,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         defaultSlotId={bookingDefaultSlotId}
         courts={courts}
         timeSlots={timeSlots}
+        members={members}
         onSaved={reloadData}
       />
     </div>

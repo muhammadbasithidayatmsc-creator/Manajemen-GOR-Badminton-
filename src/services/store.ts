@@ -5,6 +5,9 @@ import {
   BusinessSettings,
   Court,
   Customer,
+  CustomerType,
+  Member,
+  MemberStatus,
   MonthlyBookingGroup,
   PaymentMethod,
   PaymentStatus,
@@ -12,12 +15,17 @@ import {
   Transaction,
   User,
 } from '../types';
+import {
+  DEFAULT_CUSTOMER_WA_TEMPLATE,
+  DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE,
+} from '../utils/whatsapp';
 
 const STORAGE_KEYS = {
   SETTINGS: 'gor_settings_v1',
   COURTS: 'gor_courts_v1',
   SLOTS: 'gor_slots_v1',
   CUSTOMERS: 'gor_customers_v1',
+  MEMBERS: 'gor_members_v1',
   BOOKINGS: 'gor_bookings_v1',
   MONTHLY_BOOKINGS: 'gor_monthly_bookings_v1',
   TRANSACTIONS: 'gor_transactions_v1',
@@ -51,34 +59,21 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
     'Parkir Mobil & Motor Aman 24 Jam',
     'Free High-Speed Wi-Fi',
   ],
-  defaultHourlyRate: 75000,
-  bankInfo: 'BCA: 8820-1234-56 a/n GOR Smash Arena',
+  defaultHourlyRate: 30000,
+  defaultMemberHourlyRate: 25000,
+  bankInfo: 'BCA: 8820-1234-56 a/n GOR Badminton Smash Arena',
   bankAccounts: [
     { bankName: 'BCA', accountNumber: '8820-1234-56', accountHolder: 'GOR Badminton Smash Arena' },
     { bankName: 'Mandiri', accountNumber: '120-00-9876543-2', accountHolder: 'Bambang Hartono' },
   ],
   paymentNotes: 'Harap transfer DP minimal 50% untuk konfirmasi jadwal booking. Pembayaran di lokasi dapat menggunakan Tunai atau QRIS.',
-  waTemplateCustomer: `Halo Admin GOR [NAMA_GOR], saya ingin konfirmasi booking lapangan:
-- Kode Booking: [KODE]
-- Customer: [NAMA]
-- Lapangan: [LAPANGAN]
-- Tanggal: [TANGGAL]
-- Sesi Jam: [JAM]
-- Total Biaya: [TOTAL]
-
-Mohon info nomor rekening pembayaran DP manual. Terima kasih!`,
-  waTemplateConfirmation: `Halo Kak [NAMA], booking Anda di [NAMA_GOR] telah BERHASIL DIKONFIRMASI!
-- Kode Booking: [KODE]
-- Lapangan: [LAPANGAN]
-- Jadwal: [TANGGAL] ([JAM])
-- Status: [STATUS]
-- Sisa Tagihan: [SISA]
-
-Harap datang 10 menit sebelum jam main dan menggunakan sepatu badminton non-marking. Sampai jumpa di lapangan!`,
+  paymentInstructions: 'Transfer DP minimal 50% ke rekening di atas dan kirimkan bukti transfer melalui WhatsApp Admin untuk verifikasi instan.',
+  waTemplateCustomer: DEFAULT_CUSTOMER_WA_TEMPLATE,
+  waTemplateConfirmation: DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE,
   qrisInfo: 'Tersedia QRIS All Payment di meja resepsionis',
 };
 
-// Initial Courts
+// Initial Courts (Default: Reguler Rp30.000/jam, Member Bulanan Rp25.000/jam)
 export const DEFAULT_COURTS: Court[] = [
   {
     id: 'court-1',
@@ -86,7 +81,8 @@ export const DEFAULT_COURTS: Court[] = [
     code: 'C-01',
     status: 'ACTIVE',
     notes: 'Dekat tribun penonton, karpet vinyl hijau BWF',
-    hourlyRate: 85000,
+    hourlyRate: 30000,
+    memberHourlyRate: 25000,
     surfaceType: 'Vinyl BWF 5.0mm',
   },
   {
@@ -95,7 +91,8 @@ export const DEFAULT_COURTS: Court[] = [
     code: 'C-02',
     status: 'ACTIVE',
     notes: 'Sirkulasi udara samping, sangat nyaman',
-    hourlyRate: 75000,
+    hourlyRate: 30000,
+    memberHourlyRate: 25000,
     surfaceType: 'Vinyl BWF 5.0mm',
   },
   {
@@ -104,7 +101,8 @@ export const DEFAULT_COURTS: Court[] = [
     code: 'C-03',
     status: 'ACTIVE',
     notes: 'Cocok untuk latihan rutin dan sparring',
-    hourlyRate: 75000,
+    hourlyRate: 30000,
+    memberHourlyRate: 25000,
     surfaceType: 'Vinyl BWF 5.0mm',
   },
   {
@@ -113,8 +111,69 @@ export const DEFAULT_COURTS: Court[] = [
     code: 'C-04',
     status: 'ACTIVE',
     notes: 'Paling privat di sudut belakang',
-    hourlyRate: 75000,
+    hourlyRate: 30000,
+    memberHourlyRate: 25000,
     surfaceType: 'Vinyl BWF 5.0mm',
+  },
+];
+
+// Initial Members
+export const DEFAULT_MEMBERS: Member[] = [
+  {
+    id: 'mbr-1',
+    memberCode: 'MBR-2026-001',
+    name: 'Kevin Sanjaya',
+    phone: '081234567891',
+    address: 'Rawamangun, Jakarta Timur',
+    startDate: '2026-01-01',
+    endDate: '2026-12-31',
+    membershipType: 'Member Bulanan VIP',
+    customHourlyRate: 25000,
+    status: 'ACTIVE',
+    notes: 'Member rutin main hari Senin & Kamis',
+    createdAt: '2026-01-01',
+  },
+  {
+    id: 'mbr-2',
+    memberCode: 'MBR-2026-002',
+    name: 'Hendra Setiawan',
+    phone: '081298765432',
+    address: 'Kelapa Gading, Jakarta Utara',
+    startDate: '2026-02-01',
+    endDate: '2026-11-30',
+    membershipType: 'Member Bulanan Reguler',
+    customHourlyRate: 25000,
+    status: 'ACTIVE',
+    notes: 'Langganan hari Sabtu malam Court 1',
+    createdAt: '2026-02-01',
+  },
+  {
+    id: 'mbr-3',
+    memberCode: 'MBR-2026-003',
+    name: 'Fajar Alfian',
+    phone: '085611223344',
+    address: 'Tebet, Jakarta Selatan',
+    startDate: '2026-03-01',
+    endDate: '2026-11-10',
+    membershipType: 'Member Bulanan Reguler',
+    customHourlyRate: 25000,
+    status: 'ACTIVE',
+    notes: 'Akan expired dalam beberapa hari',
+    createdAt: '2026-03-01',
+  },
+  {
+    id: 'mbr-4',
+    memberCode: 'MBR-2026-004',
+    name: 'Jonatan Christie',
+    phone: '082155667788',
+    address: 'Cempaka Putih, Jakarta Pusat',
+    startDate: '2025-08-01',
+    endDate: '2026-08-01',
+    membershipType: 'Member Bulanan Reguler',
+    customHourlyRate: 25000,
+    status: 'EXPIRED',
+    notes: 'Keanggotaan sudah lewat masa aktif',
+    createdAt: '2025-08-01',
   },
 ];
 
@@ -613,19 +672,63 @@ class StorageService {
     if (!s.adminWhatsApp || s.adminWhatsApp === '6281298765432') {
       s.adminWhatsApp = '6281803716514';
     }
+    if (!s.bankAccounts || s.bankAccounts.length === 0) {
+      s.bankAccounts = DEFAULT_SETTINGS.bankAccounts;
+    }
+    // Always keep bankInfo synchronized with active bankAccounts for invoice and export
+    s.bankInfo = s.bankAccounts
+      .map((b) => `${b.bankName}: ${b.accountNumber} a/n ${b.accountHolder}`)
+      .join(' | ');
+
+    if (!s.defaultHourlyRate) s.defaultHourlyRate = 30000;
+    if (!s.defaultMemberHourlyRate) s.defaultMemberHourlyRate = 25000;
+    if (!s.paymentInstructions) {
+      s.paymentInstructions = s.paymentNotes || DEFAULT_SETTINGS.paymentInstructions;
+    }
+    if (!s.waTemplateCustomer) s.waTemplateCustomer = DEFAULT_CUSTOMER_WA_TEMPLATE;
+    if (!s.waTemplateConfirmation) s.waTemplateConfirmation = DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE;
+
     return s;
   }
 
   updateSettings(settings: Partial<BusinessSettings>): BusinessSettings {
     const current = this.getSettings();
     const updated = { ...current, ...settings };
+    if (updated.bankAccounts && updated.bankAccounts.length > 0) {
+      updated.bankInfo = updated.bankAccounts
+        .map((b) => `${b.bankName}: ${b.accountNumber} a/n ${b.accountHolder}`)
+        .join(' | ');
+    }
     this.set(STORAGE_KEYS.SETTINGS, updated);
     return updated;
   }
 
-  // Courts CRUD
+  // Courts CRUD with Dual-Pricing (Tarif Reguler Rp30.000 & Member Rp25.000)
   getCourts(): Court[] {
-    return this.get<Court[]>(STORAGE_KEYS.COURTS, DEFAULT_COURTS);
+    const courts = this.get<Court[]>(STORAGE_KEYS.COURTS, DEFAULT_COURTS);
+    let changed = false;
+    const migrated = courts.map((c) => {
+      let cHourlyRate = c.hourlyRate;
+      // Standardize old initial dummy rates (75000/85000) to 30000 as requested
+      if (!cHourlyRate || cHourlyRate > 50000) {
+        cHourlyRate = 30000;
+        changed = true;
+      }
+      const cMemberRate = c.memberHourlyRate ?? 25000;
+      if (c.memberHourlyRate === undefined) {
+        changed = true;
+      }
+      return {
+        ...c,
+        hourlyRate: cHourlyRate,
+        memberHourlyRate: cMemberRate,
+      };
+    });
+
+    if (changed) {
+      this.saveCourts(migrated);
+    }
+    return migrated;
   }
 
   saveCourts(courts: Court[]): void {
@@ -636,6 +739,8 @@ class StorageService {
     const courts = this.getCourts();
     const newCourt: Court = {
       ...courtData,
+      hourlyRate: Math.max(0, Number(courtData.hourlyRate) || 30000),
+      memberHourlyRate: Math.max(0, Number(courtData.memberHourlyRate) || 25000),
       id: `court-${Date.now()}`,
     };
     courts.push(newCourt);
@@ -647,7 +752,20 @@ class StorageService {
     const courts = this.getCourts();
     const index = courts.findIndex((c) => c.id === id);
     if (index === -1) return null;
-    courts[index] = { ...courts[index], ...updates };
+    const current = courts[index];
+    const newHourlyRate = updates.hourlyRate !== undefined
+      ? Math.max(0, Number(updates.hourlyRate))
+      : current.hourlyRate;
+    const newMemberHourlyRate = updates.memberHourlyRate !== undefined
+      ? Math.max(0, Number(updates.memberHourlyRate))
+      : (current.memberHourlyRate ?? 25000);
+
+    courts[index] = {
+      ...current,
+      ...updates,
+      hourlyRate: newHourlyRate,
+      memberHourlyRate: newMemberHourlyRate,
+    };
     this.saveCourts(courts);
     return courts[index];
   }
@@ -658,6 +776,217 @@ class StorageService {
     if (filtered.length === courts.length) return false;
     this.saveCourts(filtered);
     return true;
+  }
+
+  // ==========================================
+  // MEMBER BULANAN CRUD & OPERATIONS
+  // ==========================================
+
+  getMembers(): Member[] {
+    const members = this.get<Member[]>(STORAGE_KEYS.MEMBERS, DEFAULT_MEMBERS);
+    const today = getTodayString(0);
+    let changed = false;
+
+    // Check expiration dynamically
+    const verified = members.map((m) => {
+      if (m.status === 'ACTIVE' && m.endDate && m.endDate < today) {
+        changed = true;
+        return { ...m, status: 'EXPIRED' as MemberStatus };
+      }
+      return m;
+    });
+
+    if (changed) {
+      this.saveMembers(verified);
+    }
+    return verified;
+  }
+
+  saveMembers(members: Member[]): void {
+    this.set(STORAGE_KEYS.MEMBERS, members);
+  }
+
+  addMember(data: {
+    name: string;
+    phone: string;
+    address?: string;
+    startDate: string;
+    endDate: string;
+    membershipType?: string;
+    customHourlyRate?: number;
+    status?: MemberStatus;
+    notes?: string;
+  }): Member {
+    const members = this.getMembers();
+    const year = new Date().getFullYear();
+    const nextNum = members.length + 1;
+    const memberCode = `MBR-${year}-${String(nextNum).padStart(3, '0')}`;
+
+    const newMember: Member = {
+      id: `mbr-${Date.now()}`,
+      memberCode,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      address: data.address?.trim() || '',
+      startDate: data.startDate,
+      endDate: data.endDate,
+      membershipType: data.membershipType || 'Member Bulanan Reguler',
+      customHourlyRate: data.customHourlyRate !== undefined ? Math.max(0, data.customHourlyRate) : 25000,
+      status: data.status || 'ACTIVE',
+      notes: data.notes?.trim() || '',
+      createdAt: getTodayString(0),
+    };
+
+    members.unshift(newMember);
+    this.saveMembers(members);
+
+    // Also sync to customers list
+    this.findOrCreateCustomer(newMember.name, newMember.phone, `Member Bulanan (${memberCode})`);
+
+    return newMember;
+  }
+
+  updateMember(id: string, updates: Partial<Member>): Member | null {
+    const members = this.getMembers();
+    const index = members.findIndex((m) => m.id === id);
+    if (index === -1) return null;
+
+    const current = members[index];
+    const today = getTodayString(0);
+
+    let status = updates.status || current.status;
+    const endDate = updates.endDate || current.endDate;
+    if (status === 'ACTIVE' && endDate && endDate < today) {
+      status = 'EXPIRED';
+    }
+
+    const updated: Member = {
+      ...current,
+      ...updates,
+      status,
+      customHourlyRate: updates.customHourlyRate !== undefined
+        ? Math.max(0, Number(updates.customHourlyRate))
+        : current.customHourlyRate,
+    };
+
+    members[index] = updated;
+    this.saveMembers(members);
+    return updated;
+  }
+
+  deleteMember(id: string): boolean {
+    const members = this.getMembers();
+    const filtered = members.filter((m) => m.id !== id);
+    if (filtered.length === members.length) return false;
+    this.saveMembers(filtered);
+    return true;
+  }
+
+  extendMember(id: string, monthsToAdd: number): Member | null {
+    const members = this.getMembers();
+    const index = members.findIndex((m) => m.id === id);
+    if (index === -1) return null;
+
+    const current = members[index];
+    const today = getTodayString(0);
+    const baseDateStr = current.endDate && current.endDate >= today ? current.endDate : today;
+
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setMonth(dateObj.getMonth() + monthsToAdd);
+
+    const newYear = dateObj.getFullYear();
+    const newMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const newDay = String(dateObj.getDate()).padStart(2, '0');
+    const newEndDate = `${newYear}-${newMonth}-${newDay}`;
+
+    const updated: Member = {
+      ...current,
+      endDate: newEndDate,
+      status: 'ACTIVE',
+    };
+
+    members[index] = updated;
+    this.saveMembers(members);
+    return updated;
+  }
+
+  getMemberById(id: string): Member | undefined {
+    return this.getMembers().find((m) => m.id === id);
+  }
+
+  findMemberByPhone(phone: string): Member | undefined {
+    const clean = phone.replace(/[^0-9]/g, '');
+    const cleanStd = clean.startsWith('0') ? '62' + clean.substring(1) : clean;
+    return this.getMembers().find((m) => {
+      const mClean = m.phone.replace(/[^0-9]/g, '');
+      const mStd = mClean.startsWith('0') ? '62' + mClean.substring(1) : mClean;
+      return mStd === cleanStd;
+    });
+  }
+
+  getMemberStats(): {
+    total: number;
+    active: number;
+    inactive: number;
+    expiringSoon: number;
+    bookingsThisMonth: number;
+    totalTransactions: number;
+  } {
+    const members = this.getMembers();
+    const today = getTodayString(0);
+    const currentMonthPrefix = today.substring(0, 7); // YYYY-MM
+
+    // 14 days expiration threshold
+    const soonDate = new Date();
+    soonDate.setDate(soonDate.getDate() + 14);
+    const soonStr = soonDate.toISOString().split('T')[0];
+
+    const total = members.length;
+    let active = 0;
+    let inactive = 0;
+    let expiringSoon = 0;
+
+    for (const m of members) {
+      if (m.status === 'ACTIVE') {
+        active++;
+        if (m.endDate && m.endDate >= today && m.endDate <= soonStr) {
+          expiringSoon++;
+        }
+      } else {
+        inactive++;
+      }
+    }
+
+    const bookings = this.getBookings();
+    const memberPhones = new Set(members.map((m) => m.phone.replace(/[^0-9]/g, '')));
+    const memberIds = new Set(members.map((m) => m.id));
+
+    let bookingsThisMonth = 0;
+    let totalTransactions = 0;
+
+    for (const b of bookings) {
+      const bPhoneClean = b.customerPhone.replace(/[^0-9]/g, '');
+      const isMemberBooking = b.customerType === 'MEMBER' || (b.memberId && memberIds.has(b.memberId)) || memberPhones.has(bPhoneClean);
+
+      if (isMemberBooking) {
+        if (b.date.startsWith(currentMonthPrefix) && b.bookingStatus !== 'CANCELLED') {
+          bookingsThisMonth++;
+        }
+        if (b.paymentStatus === 'LUNAS' || b.depositAmount > 0) {
+          totalTransactions += (b.paymentStatus === 'LUNAS' ? b.totalAmount : b.depositAmount);
+        }
+      }
+    }
+
+    return {
+      total,
+      active,
+      inactive,
+      expiringSoon,
+      bookingsThisMonth,
+      totalTransactions,
+    };
   }
 
   // Time Slots CRUD
@@ -872,6 +1201,9 @@ class StorageService {
       source?: 'public_whatsapp' | 'admin_manual';
       bookingType?: BookingType;
       monthlyGroupId?: string;
+      customerType?: CustomerType;
+      memberId?: string;
+      ratePerHour?: number;
     }
   ): { success: boolean; booking?: Booking; error?: string } {
     const durationHours = Math.max(1, Number(bookingInput.durationHours) || 1);
@@ -904,7 +1236,19 @@ class StorageService {
     const slots = this.getTimeSlots();
     const slot = slots.find((s) => s.id === bookingInput.timeSlotId)!;
 
-    const calculatedTotal = court.hourlyRate * durationHours;
+    // 4. Resolve Pricing based on Customer Type (Reguler Rp30.000 vs Member Bulanan Rp25.000)
+    const isMember = bookingInput.customerType === 'MEMBER';
+    let member: Member | undefined;
+    if (bookingInput.memberId) {
+      member = this.getMemberById(bookingInput.memberId);
+    }
+    const applicableHourlyRate = bookingInput.ratePerHour !== undefined
+      ? bookingInput.ratePerHour
+      : (isMember
+          ? (member?.customHourlyRate ?? court.memberHourlyRate ?? 25000)
+          : (court.hourlyRate || 30000));
+
+    const calculatedTotal = applicableHourlyRate * durationHours;
     const total = bookingInput.totalAmount ?? calculatedTotal;
     const deposit = bookingInput.depositAmount ?? 0;
     const remaining = Math.max(0, total - deposit);
@@ -953,6 +1297,9 @@ class StorageService {
       source: bookingInput.source || 'admin_manual',
       bookingType: bookingInput.bookingType || 'REGULAR',
       monthlyGroupId: bookingInput.monthlyGroupId,
+      customerType: isMember ? 'MEMBER' : 'REGULAR',
+      memberId: bookingInput.memberId,
+      ratePerHour: applicableHourlyRate,
     };
 
     bookings.push(newBooking);
@@ -1245,6 +1592,9 @@ class StorageService {
     paymentMethod?: PaymentMethod;
     notes?: string;
     source?: 'public_whatsapp' | 'admin_manual';
+    customerType?: CustomerType;
+    memberId?: string;
+    ratePerHour?: number;
   }): {
     success: boolean;
     monthlyBooking?: MonthlyBookingGroup;
@@ -1293,8 +1643,20 @@ class StorageService {
     const slots = this.getTimeSlots();
     const slot = slots.find((s) => s.id === input.timeSlotId)!;
 
+    // 4. Resolve Pricing: Member Bulanan tarif Rp25.000/jam
+    const isMember = input.customerType !== 'REGULAR';
+    let member: Member | undefined;
+    if (input.memberId) {
+      member = this.getMemberById(input.memberId);
+    }
+    const applicableHourlyRate = input.ratePerHour !== undefined
+      ? input.ratePerHour
+      : (isMember
+          ? (member?.customHourlyRate ?? court.memberHourlyRate ?? 25000)
+          : (court.hourlyRate || 30000));
+
     const sessionCount = dates.length;
-    const ratePerSession = court.hourlyRate * durationHours;
+    const ratePerSession = applicableHourlyRate * durationHours;
     const totalAmount = input.totalAmount ?? sessionCount * ratePerSession;
     const depositAmount = input.depositAmount ?? Math.round(totalAmount * 0.5);
     const remainingAmount = Math.max(0, totalAmount - depositAmount);
@@ -1362,6 +1724,9 @@ class StorageService {
         source: input.source || 'public_whatsapp',
         bookingType: 'MONTHLY',
         monthlyGroupId: groupId,
+        customerType: isMember ? 'MEMBER' : 'REGULAR',
+        memberId: input.memberId,
+        ratePerHour: applicableHourlyRate,
       };
 
       createdBookings.push(bkg);
@@ -1399,6 +1764,9 @@ class StorageService {
       bookingIds,
       dates,
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      customerType: isMember ? 'MEMBER' : 'REGULAR',
+      memberId: input.memberId,
+      ratePerHour: applicableHourlyRate,
     };
 
     const monthlyGroups = this.getMonthlyBookings();
@@ -1427,6 +1795,7 @@ class StorageService {
         paymentStatus,
         notes: `Booking Bulanan: ${sessionCount} Sesi`,
         createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        customerType: isMember ? 'MEMBER' : 'REGULAR',
       };
       transactions.unshift(newTrx);
       this.saveTransactions(transactions);

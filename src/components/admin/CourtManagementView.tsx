@@ -40,7 +40,8 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<CourtStatus>('ACTIVE');
-  const [hourlyRate, setHourlyRate] = useState(75000);
+  const [hourlyRate, setHourlyRate] = useState(30000);
+  const [memberHourlyRate, setMemberHourlyRate] = useState(25000);
   const [surfaceType, setSurfaceType] = useState('Vinyl BWF 5.0mm');
   const [notes, setNotes] = useState('');
 
@@ -52,7 +53,8 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
     setName(`Court ${courts.length + 1}`);
     setCode(`C-0${courts.length + 1}`);
     setStatus('ACTIVE');
-    setHourlyRate(75000);
+    setHourlyRate(30000);
+    setMemberHourlyRate(25000);
     setSurfaceType('Vinyl BWF 5.0mm');
     setNotes('');
     setIsModalOpen(true);
@@ -63,7 +65,8 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
     setName(court.name);
     setCode(court.code);
     setStatus(court.status);
-    setHourlyRate(court.hourlyRate);
+    setHourlyRate(court.hourlyRate || 30000);
+    setMemberHourlyRate(court.memberHourlyRate || 25000);
     setSurfaceType(court.surfaceType || 'Vinyl BWF 5.0mm');
     setNotes(court.notes || '');
     setIsModalOpen(true);
@@ -82,6 +85,7 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
         code: code.trim().toUpperCase(),
         status,
         hourlyRate,
+        memberHourlyRate,
         surfaceType: surfaceType.trim(),
         notes: notes.trim(),
       });
@@ -92,6 +96,7 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
         code: code.trim().toUpperCase(),
         status,
         hourlyRate,
+        memberHourlyRate,
         surfaceType: surfaceType.trim(),
         notes: notes.trim(),
       });
@@ -116,7 +121,7 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
             Data Lapangan Badminton
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Kelola court, status maintenance, dan spesifikasi lapangan (Khusus Owner)
+            Kelola tarif reguler (Rp30.000/jam) vs member (Rp25.000/jam), status maintenance, dan spesifikasi (Khusus Owner)
           </p>
         </div>
 
@@ -153,11 +158,21 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
                 </p>
               )}
 
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span className="text-slate-400">Tarif Dasar:</span>
-                <span className="font-bold text-emerald-700">
-                  {formatRupiah(court.hourlyRate)} / sesi
-                </span>
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Tarif Reguler:</span>
+                  <span className="font-bold text-slate-900">
+                    {formatRupiah(court.hourlyRate || 30000)} / jam
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-amber-700 font-semibold flex items-center gap-1">
+                    <span>👑 Member:</span>
+                  </span>
+                  <span className="font-bold text-emerald-700">
+                    {formatRupiah(court.memberHourlyRate || 25000)} / jam
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -275,32 +290,48 @@ export const CourtManagementView: React.FC<CourtManagementViewProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Tarif Dasar / Sesi (Rp)
+                Tarif Reguler / Jam (Rp)
               </label>
               <input
                 type="number"
                 min="0"
-                step="5000"
+                step="1000"
                 value={hourlyRate}
                 onChange={(e) => setHourlyRate(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-emerald-700"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-bold text-slate-900 bg-white"
               />
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Default: Rp30.000/jam</span>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Jenis Lantai Karpet
+              <label className="block text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span>👑 Tarif Member Bulanan / Jam (Rp)</span>
               </label>
               <input
-                type="text"
-                value={surfaceType}
-                onChange={(e) => setSurfaceType(e.target.value)}
-                placeholder="Vinyl BWF 5.0mm"
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+                type="number"
+                min="0"
+                step="1000"
+                value={memberHourlyRate}
+                onChange={(e) => setMemberHourlyRate(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-xl border border-emerald-300 text-sm font-bold text-emerald-700 bg-emerald-50/30"
               />
+              <span className="text-[10px] text-emerald-600 mt-0.5 block">Default: Rp25.000/jam</span>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Jenis Lantai Karpet
+            </label>
+            <input
+              type="text"
+              value={surfaceType}
+              onChange={(e) => setSurfaceType(e.target.value)}
+              placeholder="Vinyl BWF 5.0mm Standard"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"
+            />
           </div>
 
           <div>

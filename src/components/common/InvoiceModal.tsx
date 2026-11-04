@@ -18,7 +18,7 @@ import {
   Check,
 } from 'lucide-react';
 import { Booking, BusinessSettings, MonthlyBookingGroup } from '../../types';
-import { formatRupiah } from '../../services/store';
+import { store, formatRupiah } from '../../services/store';
 import {
   generateBookingWhatsAppUrl,
   generateMonthlyBookingWhatsAppUrl,
@@ -80,10 +80,28 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }
   }
 
+  // Always read freshest settings from store to prevent stale bank cache
+  const activeSettings = React.useMemo(() => {
+    const latest = store.getSettings();
+    return { ...settings, ...latest };
+  }, [settings, isOpen]);
+
+  const activeBankAccounts = activeSettings.bankAccounts && activeSettings.bankAccounts.length > 0
+    ? activeSettings.bankAccounts
+    : [{ bankName: 'BCA', accountNumber: '8820-1234-56', accountHolder: 'GOR Badminton Smash Arena' }];
+
+  const customerTypeLabel = isMonthly
+    ? 'Member Bulanan'
+    : (booking?.customerType === 'MEMBER' ? 'Member Bulanan' : 'Pelanggan Reguler');
+
+  const hourlyRateDisplay = isMonthly
+    ? (monthlyBooking.ratePerHour || 25000)
+    : (booking?.ratePerHour || (booking?.customerType === 'MEMBER' ? 25000 : 30000));
+
   // WA URL generator
   const waUrl = isMonthly
     ? generateMonthlyBookingWhatsAppUrl({
-        settings,
+        settings: activeSettings,
         groupCode: monthlyBooking.groupCode,
         customerName: monthlyBooking.customerName,
         customerPhone: monthlyBooking.customerPhone,
@@ -100,9 +118,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         remainingAmount: monthlyBooking.remainingAmount,
         dates: monthlyBooking.dates,
         notes: monthlyBooking.notes,
+        customerType: 'MEMBER',
+        ratePerHour: hourlyRateDisplay,
       })
     : generateBookingWhatsAppUrl({
-        settings,
+        settings: activeSettings,
         customerName: booking!.customerName,
         customerPhone: booking!.customerPhone,
         courtName: booking!.courtName,
@@ -115,6 +135,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         notes: booking!.notes,
         bookingCode: booking!.bookingCode,
         bookingType: booking!.bookingType || 'REGULAR',
+        customerType: booking!.customerType || 'REGULAR',
+        ratePerHour: hourlyRateDisplay,
       });
 
   const handleCopyCode = () => {
@@ -129,17 +151,22 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   const handleDownloadInvoice = () => {
+    const banksFormatted = activeBankAccounts
+      .map((b) => `• ${b.bankName}: ${b.accountNumber} a/n ${b.accountHolder}`)
+      .join('\n');
+
     const invoiceContent = `
 =====================================================
-            ${settings.gorName || settings.name || 'GOR BADMINTON'}
-     ${settings.address || 'Pusat Rental Lapangan Badminton'}
-            WhatsApp: +${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
+            ${activeSettings.gorName || activeSettings.name || 'GOR BADMINTON'}
+     ${activeSettings.address || 'Pusat Rental Lapangan Badminton'}
+            WhatsApp: +${activeSettings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
 =====================================================
 
 INVOICE / RINGKASAN BOOKING
 ID Booking       : ${idBooking}
 Tanggal Terbit   : ${createdAt}
 Jenis Booking    : ${isMonthly ? 'BOOKING BULANAN (MEMBER)' : 'BOOKING REGULER (HARIAN)'}
+Jenis Pelanggan  : ${customerTypeLabel.toUpperCase()}
 Status Booking   : ${bookingStatus}
 Status Bayar     : ${paymentStatus}
 
@@ -148,6 +175,7 @@ DATA PELANGGAN
 -----------------------------------------------------
 Nama Customer    : ${customerName}
 WhatsApp         : ${customerPhone}
+Kategori         : ${customerTypeLabel}
 
 -----------------------------------------------------
 DETAIL JADWAL SEWA
@@ -155,7 +183,8 @@ DETAIL JADWAL SEWA
 Lapangan         : ${courtName}
 Tanggal/Periode  : ${dateOrPeriod}
 Jam / Sesi       : ${timeSlotLabel}
-${isMonthly ? `Jumlah Sesi      : ${monthlyBooking.sessionCount} Sesi\nPola Hari        : Setiap ${monthlyBooking.selectedDaysLabels.join(' & ')}` : `Durasi           : ${booking!.durationHours} Jam`}
+Tarif per Jam    : ${formatRupiah(hourlyRateDisplay)}
+${isMonthly ? `Jumlah Sesi      : ${monthlyBooking.sessionCount} Sesi\nPola Hari        : Setiap ${monthlyBooking.selectedDaysLabels.join(' & ')}` : `Durasi           : ${booking?.durationHours || 1} Jam`}
 Catatan          : ${notes || '-'}
 
 -----------------------------------------------------
@@ -169,11 +198,13 @@ SISA PEMBAYARAN  : ${formatRupiah(remainingAmount)}
 -----------------------------------------------------
 INFORMASI PEMBAYARAN TRANSFER
 -----------------------------------------------------
-${settings.bankInfo || 'BCA: 8820-1234-56 a/n GOR Badminton Smash Arena'}
-${settings.paymentNotes || 'Harap transfer DP untuk konfirmasi jadwal booking.'}
+${banksFormatted}
+
+Petunjuk Pembayaran:
+${activeSettings.paymentInstructions || activeSettings.paymentNotes || 'Harap transfer DP untuk konfirmasi jadwal booking.'}
 
 Link Konfirmasi WhatsApp Admin:
-https://wa.me/${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
+https://wa.me/${activeSettings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
 =====================================================
     Terima kasih telah berolahraga di GOR kami!
 =====================================================
@@ -317,6 +348,22 @@ https://wa.me/${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
                   <span className="text-slate-500">Nomor WhatsApp</span>
                   <span className="font-medium text-slate-800">{customerPhone}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Jenis Pelanggan</span>
+                  <span className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
+                    customerTypeLabel === 'Member Bulanan'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-slate-100 text-slate-700'
+                  }`}>
+                    {customerTypeLabel}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Tarif Lapangan</span>
+                  <span className="font-semibold text-slate-800">
+                    {formatRupiah(hourlyRateDisplay)} / jam
+                  </span>
+                </div>
                 {notes && (
                   <div className="flex justify-between pt-1 border-t border-slate-100 text-slate-600">
                     <span className="text-slate-500">Catatan</span>
@@ -398,7 +445,7 @@ https://wa.me/${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
             <div className="p-4 space-y-2.5 text-xs">
               <div className="flex justify-between text-slate-600">
                 <span>
-                  Sewa {courtName} ({isMonthly ? `${monthlyBooking.sessionCount} Sesi @ ${formatRupiah(monthlyBooking.ratePerSession)}` : `${timeSlotLabel}`})
+                  Sewa {courtName} ({isMonthly ? `${monthlyBooking.sessionCount} Sesi @ ${formatRupiah(monthlyBooking.ratePerSession)}` : `${booking?.durationHours || 1} Jam @ ${formatRupiah(hourlyRateDisplay)}`})
                 </span>
                 <span className="font-medium text-slate-900">{formatRupiah(totalAmount)}</span>
               </div>
@@ -426,17 +473,47 @@ https://wa.me/${settings.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP}
             </div>
           </div>
 
-          {/* Payment Instructions */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1.5">
+          {/* Payment Instructions & Bank Accounts (Dynamic from active settings) */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-3">
             <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-              <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-              <span>Petunjuk Pembayaran Transfer / QRIS:</span>
+              <CreditCard className="w-4 h-4 text-emerald-600" />
+              <span>Petunjuk Pembayaran Transfer / Rekening Resmi GOR:</span>
             </div>
-            <p className="font-mono font-medium text-slate-700">
-              {settings.bankInfo || 'BCA: 8820-1234-56 a/n GOR Badminton Smash Arena'}
-            </p>
-            <p className="text-slate-500">
-              {settings.paymentNotes || 'Kirimkan bukti transfer DP minimal 50% via WhatsApp Admin untuk konfirmasi instan.'}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {activeBankAccounts.map((acc, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-white border border-slate-200 rounded-lg flex flex-col justify-between shadow-2xs hover:border-emerald-300 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs uppercase tracking-wider text-slate-800 bg-slate-100 px-2 py-0.5 rounded">
+                      {acc.bankName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(acc.accountNumber);
+                        success('Disalin', `Nomor rekening ${acc.accountNumber} disalin!`);
+                      }}
+                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-medium inline-flex items-center gap-1 hover:underline"
+                    >
+                      <Copy className="w-3 h-3" />
+                      Salin
+                    </button>
+                  </div>
+                  <div className="font-mono font-bold text-sm text-slate-900 tracking-wide">
+                    {acc.accountNumber}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    a/n <span className="font-medium text-slate-700">{acc.accountHolder}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed pt-1 border-t border-slate-200">
+              {activeSettings.paymentInstructions || activeSettings.paymentNotes || 'Kirimkan bukti transfer DP minimal 50% via WhatsApp Admin untuk konfirmasi instan.'}
             </p>
           </div>
         </div>

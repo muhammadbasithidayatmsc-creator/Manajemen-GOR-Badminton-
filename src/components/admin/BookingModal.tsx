@@ -6,6 +6,8 @@ import {
   PaymentMethod,
   PaymentStatus,
   TimeSlot,
+  CustomerType,
+  Member,
 } from '../../types';
 import {
   formatRupiah,
@@ -32,6 +34,9 @@ import {
   Timer,
   ExternalLink,
   MessageCircle,
+  Crown,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface BookingModalProps {
@@ -43,6 +48,7 @@ interface BookingModalProps {
   defaultSlotId?: string;
   courts: Court[];
   timeSlots: TimeSlot[];
+  members?: Member[];
   onSaved: () => void;
 }
 
@@ -57,6 +63,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   defaultSlotId,
   courts,
   timeSlots,
+  members: propMembers,
   onSaved,
 }) => {
   const { success, error } = useToast();
@@ -66,6 +73,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Active items
   const activeCourts = useMemo(() => courts.filter((c) => c.status === 'ACTIVE'), [courts]);
   const activeSlots = useMemo(() => timeSlots.filter((s) => s.active), [timeSlots]);
+  const allMembers = useMemo(() => propMembers || store.getMembers(), [propMembers, isOpen]);
+
+  // Customer Type State (Reguler vs Member Bulanan)
+  const [customerType, setCustomerType] = useState<CustomerType>('REGULAR');
+  const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+  const [memberWarning, setMemberWarning] = useState<string | null>(null);
 
   // Form State
   const [customerName, setCustomerName] = useState('');
@@ -76,7 +89,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [durationHours, setDurationHours] = useState(1);
   const [isCustomDuration, setIsCustomDuration] = useState(false);
   const [customHours, setCustomHours] = useState(3);
-  const [totalAmount, setTotalAmount] = useState(75000);
+  const [ratePerHour, setRatePerHour] = useState(30000);
+  const [totalAmount, setTotalAmount] = useState(30000);
   const [depositAmount, setDepositAmount] = useState(0);
   const [bookingStatus, setBookingStatus] = useState<BookingStatus>('PENDING');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('BELUM BAYAR');
@@ -108,6 +122,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Initialize or Reset Form
   useEffect(() => {
     if (bookingToEdit) {
+      setCustomerType(bookingToEdit.customerType || 'REGULAR');
+      setSelectedMemberId(bookingToEdit.memberId || '');
       setCustomerName(bookingToEdit.customerName);
       setCustomerPhone(bookingToEdit.customerPhone);
       setDate(bookingToEdit.date);
@@ -121,13 +137,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         setIsCustomDuration(true);
         setCustomHours(bDuration);
       }
+      setRatePerHour(bookingToEdit.ratePerHour || (bookingToEdit.customerType === 'MEMBER' ? 25000 : 30000));
       setTotalAmount(bookingToEdit.totalAmount);
       setDepositAmount(bookingToEdit.depositAmount);
       setBookingStatus(bookingToEdit.bookingStatus);
       setPaymentStatus(bookingToEdit.paymentStatus);
       setPaymentMethod(bookingToEdit.paymentMethod || 'CASH');
       setNotes(bookingToEdit.notes || '');
+      setMemberWarning(null);
     } else {
+      setCustomerType('REGULAR');
+      setSelectedMemberId('');
       setCustomerName('');
       setCustomerPhone('');
       const targetDate = defaultDate || getTodayString(0);
@@ -139,25 +159,79 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       setDurationHours(1);
       setIsCustomDuration(false);
 
-      // Default rate
       const court = courts.find((c) => c.id === targetCourtId);
-      const rate = court ? court.hourlyRate : 75000;
+      const rate = court ? court.hourlyRate : 30000;
+      setRatePerHour(rate);
       setTotalAmount(rate);
       setDepositAmount(0);
       setBookingStatus('PENDING');
       setPaymentStatus('BELUM BAYAR');
       setPaymentMethod('CASH');
       setNotes('');
+      setMemberWarning(null);
     }
   }, [bookingToEdit, defaultDate, defaultCourtId, defaultSlotId, courts, activeCourts, activeSlots, isOpen]);
+
+  // Customer Type & Member Selection Handlers
+  const handleCustomerTypeChange = (type: CustomerType) => {
+    setCustomerType(type);
+    if (type === 'REGULAR') {
+      setSelectedMemberId('');
+      setMemberWarning(null);
+      const regRate = selectedCourt ? (selectedCourt.hourlyRate || 30000) : 30000;
+      setRatePerHour(regRate);
+      if (!isEditing) {
+        setTotalAmount(regRate * effectiveDuration);
+      }
+    } else {
+      const mbrRate = selectedCourt ? (selectedCourt.memberHourlyRate || 25000) : 25000;
+      setRatePerHour(mbrRate);
+      if (!isEditing) {
+        setTotalAmount(mbrRate * effectiveDuration);
+      }
+    }
+  };
+
+  const handleSelectMember = (memberId: string) => {
+    setSelectedMemberId(memberId);
+    if (!memberId) {
+      setMemberWarning(null);
+      return;
+    }
+
+    const member = allMembers.find((m) => m.id === memberId || m.memberId === memberId);
+    if (member) {
+      setCustomerName(member.name);
+      setCustomerPhone(member.phone);
+
+      const today = new Date().toISOString().split('T')[0];
+      if (member.endDate < today || member.status !== 'ACTIVE') {
+        setMemberWarning(
+          `Perhatian: Masa aktif keanggotaan ${member.name} telah berakhir (${member.endDate}) atau berstatus ${member.status}.`
+        );
+      } else {
+        setMemberWarning(null);
+      }
+
+      const applicableRate = member.customHourlyRate || selectedCourt?.memberHourlyRate || 25000;
+      setRatePerHour(applicableRate);
+      if (!isEditing) {
+        setTotalAmount(applicableRate * effectiveDuration);
+      }
+    }
+  };
 
   // When court or duration changes, adjust total amount if newly creating or if total is standard
   const handleCourtChange = (newCourtId: string) => {
     setCourtId(newCourtId);
-    if (!isEditing) {
-      const selected = courts.find((c) => c.id === newCourtId);
-      if (selected) {
-        setTotalAmount(selected.hourlyRate * effectiveDuration);
+    const selected = courts.find((c) => c.id === newCourtId);
+    if (selected) {
+      const applicableRate = customerType === 'MEMBER'
+        ? (selected.memberHourlyRate || 25000)
+        : (selected.hourlyRate || 30000);
+      setRatePerHour(applicableRate);
+      if (!isEditing) {
+        setTotalAmount(applicableRate * effectiveDuration);
       }
     }
   };
@@ -165,16 +239,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const handleDurationSelect = (hrs: number) => {
     setIsCustomDuration(false);
     setDurationHours(hrs);
-    if (!isEditing && selectedCourt) {
-      setTotalAmount(selectedCourt.hourlyRate * hrs);
+    if (!isEditing) {
+      setTotalAmount(ratePerHour * hrs);
     }
   };
 
   const handleCustomDurationChange = (val: number) => {
     const valid = Math.max(1, Math.min(8, val));
     setCustomHours(valid);
-    if (!isEditing && selectedCourt) {
-      setTotalAmount(selectedCourt.hourlyRate * valid);
+    if (!isEditing) {
+      setTotalAmount(ratePerHour * valid);
     }
   };
 
@@ -271,6 +345,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       const res = store.updateBooking(bookingToEdit.id, {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        customerType,
+        memberId: customerType === 'MEMBER' && selectedMemberId ? selectedMemberId : undefined,
+        ratePerHour,
         courtId,
         date,
         timeSlotId,
@@ -294,6 +371,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       const res = store.createBooking({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        customerType,
+        memberId: customerType === 'MEMBER' && selectedMemberId ? selectedMemberId : undefined,
+        ratePerHour,
         courtId,
         date,
         timeSlotId,
@@ -321,7 +401,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? `Edit Booking: ${bookingToEdit?.bookingCode}` : 'Form Booking Lapangan Baru'}
-      subtitle="Manajemen reservasi, durasi fleksibel, pembayaran & anti double booking"
+      subtitle="Manajemen reservasi, durasi fleksibel, tarif member & reguler, anti double booking"
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -335,6 +415,82 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Customer Type Selector (Reguler vs Member Bulanan) */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200/90 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Crown className="w-4 h-4 text-amber-500" />
+              Jenis Pelanggan & Kategori Tarif:
+            </span>
+            <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
+              Tarif: {formatRupiah(ratePerHour)} / jam
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleCustomerTypeChange('REGULAR')}
+              className={`p-2.5 rounded-xl border text-left transition-all ${
+                customerType === 'REGULAR'
+                  ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <div className="font-bold text-xs">Pelanggan Reguler</div>
+              <div className={`text-[11px] ${customerType === 'REGULAR' ? 'text-slate-300' : 'text-slate-500'}`}>
+                Tarif standar: {formatRupiah(selectedCourt?.hourlyRate || 30000)}/jam
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleCustomerTypeChange('MEMBER')}
+              className={`p-2.5 rounded-xl border text-left transition-all ${
+                customerType === 'MEMBER'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-600 text-white shadow-sm'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300'
+              }`}
+            >
+              <div className="font-bold text-xs flex items-center gap-1">
+                <span>Member Bulanan</span>
+                <span className="text-[10px] bg-white/20 px-1.5 py-0.2 rounded font-mono">VIP</span>
+              </div>
+              <div className={`text-[11px] ${customerType === 'MEMBER' ? 'text-amber-100' : 'text-emerald-600 font-semibold'}`}>
+                Tarif khusus: {formatRupiah(selectedCourt?.memberHourlyRate || 25000)}/jam
+              </div>
+            </button>
+          </div>
+
+          {/* Member Dropdown if customerType === 'MEMBER' */}
+          {customerType === 'MEMBER' && (
+            <div className="pt-2 border-t border-slate-200/80 space-y-2">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Pilih Member Bulanan dari Database:
+              </label>
+              <select
+                value={selectedMemberId}
+                onChange={(e) => handleSelectMember(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="">-- Pilih Nama Member Terdaftar --</option>
+                {allMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.memberId}) - {m.phone} [{m.status} | Exp: {m.endDate}] - {formatRupiah(m.customHourlyRate || 25000)}/jam
+                  </option>
+                ))}
+              </select>
+
+              {memberWarning && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{memberWarning}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Customer Information (HIGH CONTRAST & CLEAR READABILITY) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

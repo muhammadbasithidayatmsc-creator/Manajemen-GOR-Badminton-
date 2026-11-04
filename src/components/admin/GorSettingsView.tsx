@@ -19,10 +19,17 @@ import {
   Grid,
   Clock,
   Sliders,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { GorSettings, User } from '../../types';
 import { store } from '../../services/store';
 import { useToast } from '../../context/ToastContext';
+import {
+  DEFAULT_CUSTOMER_WA_TEMPLATE,
+  DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE,
+  substituteWhatsAppTemplate,
+} from '../../utils/whatsapp';
 
 interface GorSettingsViewProps {
   settings: GorSettings;
@@ -53,6 +60,19 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+
+  // WhatsApp Template Preview State
+  const [previewTemplateMode, setPreviewTemplateMode] = useState<'CUSTOMER' | 'CONFIRMATION'>('CUSTOMER');
+
+  const handleResetCustomerTemplate = () => {
+    setFormData((prev) => ({ ...prev, waTemplateCustomer: DEFAULT_CUSTOMER_WA_TEMPLATE }));
+    success('Template Direset', 'Template WhatsApp Customer telah dikembalikan ke format bawaan.');
+  };
+
+  const handleResetConfirmationTemplate = () => {
+    setFormData((prev) => ({ ...prev, waTemplateConfirmation: DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE }));
+    success('Template Direset', 'Template WhatsApp Konfirmasi Admin telah dikembalikan ke format bawaan.');
+  };
 
   const handleChange = (field: keyof GorSettings, val: any) => {
     setFormData((prev) => ({ ...prev, [field]: val }));
@@ -493,45 +513,166 @@ export const GorSettingsView: React.FC<GorSettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 pb-2 border-b border-slate-100">
-              <MessageSquare className="w-4 h-4 text-blue-600" />
-              <span>Template Pesan WhatsApp Otomatis</span>
+          {/* WhatsApp Template Editor & 22-Tag Engine */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>Konfigurasi Template WhatsApp Otomatis (22 Dynamic Tags)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetCustomerTemplate}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  title="Kembalikan Template Customer ke Default"
+                >
+                  <RotateCcw className="w-3 h-3 text-slate-500" />
+                  <span>Reset Tpl Customer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetConfirmationTemplate}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  title="Kembalikan Template Konfirmasi Admin ke Default"
+                >
+                  <RotateCcw className="w-3 h-3 text-slate-500" />
+                  <span>Reset Tpl Konfirmasi</span>
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Template WhatsApp Customer (Ketika Booking di Web Publik)
-                  </label>
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    Tag: [NAMA], [KODE], [LAPANGAN], [TANGGAL], [JAM], [TOTAL]
+            {/* 22 Dynamic Tags Cheat Sheet */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  Daftar 22 Dynamic Tags (Klik tag untuk menyalin):
+                </span>
+                <span className="text-[10px] text-slate-400">Otomatis diganti data riil booking</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {[
+                  '[NAMA_GOR]', '[NAMA]', '[WHATSAPP]', '[KODE]', '[JENIS_BOOKING]',
+                  '[JENIS_PELANGGAN]', '[LAPANGAN]', '[TANGGAL]', '[JAM]', '[JAM_SELESAI]',
+                  '[DURASI]', '[HARGA_PER_JAM]', '[TOTAL]', '[DP]', '[SISA]',
+                  '[STATUS_PEMBAYARAN]', '[STATUS]', '[METODE_PEMBAYARAN]', '[NAMA_BANK]',
+                  '[NOMOR_REKENING]', '[ATAS_NAMA]', '[INSTRUKSI_PEMBAYARAN]', '[CATATAN]'
+                ].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(tag);
+                      success('Tag Disalin', `Tag ${tag} disalin ke clipboard.`);
+                    }}
+                    className="font-mono text-[11px] px-2 py-0.5 rounded bg-white border border-slate-300 hover:border-emerald-500 hover:text-emerald-700 text-slate-700 transition-colors shadow-2xs cursor-pointer"
+                    title={`Klik untuk salin ${tag}`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Textarea Template Customer */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  1. Template WhatsApp Customer (Dari Form Booking Publik)
+                </label>
+                <span className="text-[11px] text-emerald-700 font-semibold">
+                  Tujuan: Admin (+6281803716514)
+                </span>
+              </div>
+              <textarea
+                rows={6}
+                value={formData.waTemplateCustomer || ''}
+                onChange={(e) => handleChange('waTemplateCustomer', e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              />
+            </div>
+
+            {/* Textarea Template Konfirmasi Admin */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  2. Template Konfirmasi Admin (Kirim ke WhatsApp Customer)
+                </label>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Digunakan admin saat verifikasi & update status booking
+                </span>
+              </div>
+              <textarea
+                rows={6}
+                value={formData.waTemplateConfirmation || ''}
+                onChange={(e) => handleChange('waTemplateConfirmation', e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+              />
+            </div>
+
+            {/* Live Preview Card */}
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1">
+                    <span>📱 Live Preview Pesan WhatsApp:</span>
                   </span>
+                  <div className="flex items-center bg-white rounded-lg p-0.5 border border-emerald-200 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTemplateMode('CUSTOMER')}
+                      className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                        previewTemplateMode === 'CUSTOMER' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Pesan Customer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTemplateMode('CONFIRMATION')}
+                      className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                        previewTemplateMode === 'CONFIRMATION' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Pesan Konfirmasi Admin
+                    </button>
+                  </div>
                 </div>
-                <textarea
-                  rows={4}
-                  value={formData.waTemplateCustomer}
-                  onChange={(e) => handleChange('waTemplateCustomer', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                />
+                <span className="text-[10px] text-emerald-800 font-medium">Simulasi data 3 jam member (Rp75.000)</span>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Template Konfirmasi Admin (Kirim Notifikasi / Verifikasi)
-                  </label>
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    Tag: [NAMA], [KODE], [LAPANGAN], [TANGGAL], [JAM], [STATUS], [SISA]
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={formData.waTemplateConfirmation}
-                  onChange={(e) => handleChange('waTemplateConfirmation', e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono font-medium text-[#1F2937] bg-white placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                />
+              <div className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs font-mono text-[11px] text-slate-800 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                {substituteWhatsAppTemplate(
+                  previewTemplateMode === 'CUSTOMER'
+                    ? (formData.waTemplateCustomer || DEFAULT_CUSTOMER_WA_TEMPLATE)
+                    : (formData.waTemplateConfirmation || DEFAULT_ADMIN_CONFIRMATION_WA_TEMPLATE),
+                  {
+                    namaGor: formData.gorName || formData.name || 'GOR Badminton Smash Arena',
+                    nama: 'Hendra Setiawan',
+                    whatsapp: '081803716514',
+                    kode: 'BK-20261104-001',
+                    jenisBooking: 'Booking Reguler',
+                    jenisPelanggan: 'Member Bulanan',
+                    lapangan: 'Court 1 (Utama BWF)',
+                    tanggal: '10 November 2026',
+                    jam: '19.00',
+                    jamSelesai: '22.00',
+                    durasi: '3 Jam',
+                    hargaPerJam: '25.000',
+                    total: '75.000',
+                    dp: '50.000',
+                    sisa: '25.000',
+                    statusPembayaran: 'DP',
+                    status: 'CONFIRMED',
+                    metodePembayaran: 'TRANSFER',
+                    namaBank: formData.bankAccounts[0]?.bankName || 'BCA',
+                    nomorRekening: formData.bankAccounts[0]?.accountNumber || '8820-1234-56',
+                    atasNama: formData.bankAccounts[0]?.accountHolder || 'GOR Badminton Smash Arena',
+                    instruksiPembayaran: formData.paymentInstructions || 'Kirimkan bukti transfer DP minimal 50% via WhatsApp Admin.',
+                    catatan: 'Sewa raket 2 & kok 1 slop',
+                  }
+                )}
               </div>
             </div>
           </div>
