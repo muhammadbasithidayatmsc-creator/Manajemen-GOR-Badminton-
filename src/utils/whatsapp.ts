@@ -323,55 +323,59 @@ export function generateBookingWhatsAppUrl(params: {
 
 export function generateMonthlyBookingWhatsAppUrl(params: {
   settings?: BusinessSettings;
-  groupCode: string;
-  customerName: string;
-  customerPhone: string;
-  courtName: string;
-  periodLabel: string;
-  startDate: string;
-  endDate: string;
-  selectedDaysLabels: string[];
-  timeSlotLabel: string;
-  sessionCount: number;
-  ratePerSession: number;
-  totalAmount: number;
-  depositAmount: number;
-  remainingAmount: number;
-  dates: string[];
+  groupCode?: string;
+  customerName?: string;
+  customerPhone?: string;
+  courtName?: string;
+  periodLabel?: string;
+  startDate?: string;
+  endDate?: string;
+  selectedDaysLabels?: string[];
+  timeSlotLabel?: string;
+  sessionCount?: number;
+  ratePerSession?: number;
+  totalAmount?: number;
+  depositAmount?: number;
+  remainingAmount?: number;
+  dates?: string[];
   notes?: string;
   customerType?: 'REGULAR' | 'MEMBER';
   ratePerHour?: number;
 }): string {
   const {
     settings,
-    groupCode,
-    customerName,
-    customerPhone,
-    courtName,
-    periodLabel,
-    startDate,
-    endDate,
-    selectedDaysLabels,
-    timeSlotLabel,
-    sessionCount,
-    ratePerSession,
-    totalAmount,
-    depositAmount,
-    remainingAmount,
-    dates,
-    notes,
+    groupCode = 'MBKG',
+    customerName = 'Pelanggan',
+    customerPhone = '',
+    courtName = 'Lapangan Badminton',
+    periodLabel = '',
+    startDate = '',
+    endDate = '',
+    selectedDaysLabels = [],
+    timeSlotLabel = '-',
+    sessionCount = 4,
+    ratePerSession = 0,
+    totalAmount = 0,
+    depositAmount = 0,
+    remainingAmount = 0,
+    dates = [],
+    notes = '',
     customerType = 'MEMBER',
     ratePerHour = 25000,
   } = params;
 
   const targetPhone = normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
 
+  // Safe dates handling
+  const safeDates = Array.isArray(dates) ? dates : [];
+  const safeDaysLabels = Array.isArray(selectedDaysLabels) ? selectedDaysLabels : [];
+
   // Format first 8 dates summary
-  const datesSummary = dates
+  const datesSummary = safeDates
     .slice(0, 8)
     .map((d) => {
       try {
-        const [y, m, dt] = d.split('-').map(Number);
+        const [y, m, dt] = String(d).split('-').map(Number);
         const o = new Date(y, m - 1, dt);
         return `• ${o.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}`;
       } catch {
@@ -380,7 +384,7 @@ export function generateMonthlyBookingWhatsAppUrl(params: {
     })
     .join('\n');
 
-  const moreCount = dates.length > 8 ? `\n• ...dan ${dates.length - 8} sesi lainnya` : '';
+  const moreCount = safeDates.length > 8 ? `\n• ...dan ${safeDates.length - 8} sesi lainnya` : '';
 
   const primaryBank = settings?.bankAccounts && settings.bankAccounts.length > 0
     ? settings.bankAccounts[0]
@@ -392,14 +396,14 @@ export function generateMonthlyBookingWhatsAppUrl(params: {
     `Halo Admin, saya ingin konfirmasi booking paket member bulanan:`,
     '',
     `📋 Kode Booking: ${groupCode}`,
-    `👤 Nama: ${customerName.trim()}`,
-    `📱 WhatsApp: ${customerPhone.trim()}`,
+    `👤 Nama: ${(customerName || '').trim()}`,
+    `📱 WhatsApp: ${(customerPhone || '').trim()}`,
     `👥 Jenis Pelanggan: ${customerType === 'MEMBER' ? 'Member Bulanan' : 'Pelanggan Reguler'}`,
     `📌 Jenis Booking: Paket Member Bulanan`,
     `🏸 Lapangan: ${courtName}`,
-    `📅 Periode: ${periodLabel} (${startDate} s/d ${endDate})`,
-    `⏰ Jadwal: Setiap ${selectedDaysLabels.join(' & ')} (${timeSlotLabel})`,
-    `⏱️ Jumlah Sesi: ${sessionCount} Sesi Pertemuan`,
+    `📅 Periode: ${periodLabel || `${startDate} s/d ${endDate}`}`,
+    `⏰ Jadwal: ${safeDaysLabels.length > 0 ? `Setiap ${safeDaysLabels.join(' & ')}` : 'Jadwal Rutin'} (${timeSlotLabel})`,
+    `⏱️ Jumlah Sesi: ${sessionCount || safeDates.length || 4} Sesi Pertemuan`,
     '',
     `💰 RINCIAN BIAYA MEMBER:`,
     `Tarif Khusus Member: Rp${(ratePerHour || 25000).toLocaleString('id-ID')}/jam`,
@@ -419,7 +423,7 @@ export function generateMonthlyBookingWhatsAppUrl(params: {
     `📝 Catatan: ${notes && notes.trim() ? notes.trim() : '-'}`,
     '',
     `Daftar Tanggal Sesi:`,
-    datesSummary + moreCount,
+    datesSummary ? (datesSummary + moreCount) : '• Sesuai kalender terjadwal',
     '',
     'Mohon dibantu konfirmasi booking saya.',
     '',
@@ -523,47 +527,50 @@ export function generateMemberInfoWhatsAppUrl(params: {
 export function generateMemberScheduleWhatsAppUrl(params: {
   settings?: BusinessSettings;
   member: {
-    name: string;
-    phone: string;
-    memberCode: string;
-    membershipType: string;
+    name?: string;
+    phone?: string;
+    memberCode?: string;
+    membershipType?: string;
     packageName?: string;
-    startDate: string;
-    endDate: string;
+    startDate?: string;
+    endDate?: string;
     sessionCount?: number;
     durationHours?: number;
     courtName?: string;
     timeSlotLabel?: string;
     selectedDaysLabels?: string[];
   };
-  sessionDates: string[];
+  sessionDates?: string[];
   sendToCustomer?: boolean;
 }): string {
-  const { settings, member, sessionDates, sendToCustomer = true } = params;
+  const { settings, member, sessionDates = [], sendToCustomer = true } = params;
   const targetPhone = sendToCustomer
-    ? cleanPhoneNumber(member.phone)
+    ? cleanPhoneNumber(member.phone || '')
     : normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
 
-  const formattedSchedule = sessionDates.map((d, idx) => {
-    try {
-      const [y, m, dt] = d.split('-').map(Number);
-      const o = new Date(y, m - 1, dt);
-      const dayLabel = o.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-      return `${idx + 1}. ${dayLabel} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
-    } catch {
-      return `${idx + 1}. ${d} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
-    }
-  }).join('\n');
+  const safeSessionDates = Array.isArray(sessionDates) ? sessionDates : [];
+  const formattedSchedule = safeSessionDates.length > 0
+    ? safeSessionDates.map((d, idx) => {
+        try {
+          const [y, m, dt] = String(d).split('-').map(Number);
+          const o = new Date(y, m - 1, dt);
+          const dayLabel = o.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+          return `${idx + 1}. ${dayLabel} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
+        } catch {
+          return `${idx + 1}. ${d} — ${member.timeSlotLabel || ''} (${member.courtName || 'Court'})`;
+        }
+      }).join('\n')
+    : '• Jadwal rutin sesuai kalender bermain';
 
   const lines = [
     `📅 JADWAL PERTEMUAN RESMI MEMBER — ${settings?.gorName || settings?.name || 'GOR SMASH ARENA'}`,
     '',
-    `Halo *${member.name.trim()}* (${member.memberCode}),`,
-    `Berikut jadwal resmi sesi bermain paket *${member.packageName || member.membershipType}* Anda:`,
+    `Halo *${(member.name || 'Member').trim()}* (${member.memberCode || 'MBR'}),`,
+    `Berikut jadwal resmi sesi bermain paket *${member.packageName || member.membershipType || 'Member Bulanan'}* Anda:`,
     '',
     `🏸 Lapangan: *${member.courtName || 'Court Utama'}*`,
     `⏰ Jam Main: *${member.timeSlotLabel || ''} (${member.durationHours || 3} Jam)*`,
-    `📊 Total Sesi: *${sessionDates.length} Pertemuan Terjadwal*`,
+    `📊 Total Sesi: *${safeSessionDates.length || member.sessionCount || 4} Pertemuan Terjadwal*`,
     '',
     `📋 *DAFTAR TANGGAL PERTEMUAN:*`,
     formattedSchedule,
@@ -585,13 +592,13 @@ export function generateMemberScheduleWhatsAppUrl(params: {
 export function generateMemberInvoiceWhatsAppUrl(params: {
   settings?: BusinessSettings;
   member: {
-    name: string;
-    phone: string;
-    memberCode: string;
-    membershipType: string;
+    name?: string;
+    phone?: string;
+    memberCode?: string;
+    membershipType?: string;
     packageName?: string;
-    startDate: string;
-    endDate: string;
+    startDate?: string;
+    endDate?: string;
     sessionCount?: number;
     durationHours?: number;
     courtName?: string;
@@ -606,10 +613,10 @@ export function generateMemberInvoiceWhatsAppUrl(params: {
 }): string {
   const { settings, member, invoiceCode, sendToCustomer = true } = params;
   const targetPhone = sendToCustomer
-    ? cleanPhoneNumber(member.phone)
+    ? cleanPhoneNumber(member.phone || '')
     : normalizeWhatsAppNumber(settings?.adminWhatsApp || DEFAULT_ADMIN_WHATSAPP);
 
-  const inv = invoiceCode || `INV-MBR-${member.memberCode}`;
+  const inv = invoiceCode || `INV-MBR-${member.memberCode || Date.now()}`;
   const total = member.totalAmount || 0;
   const dp = member.depositAmount || 0;
   const sisa = member.remainingAmount !== undefined ? member.remainingAmount : Math.max(0, total - dp);
@@ -625,13 +632,13 @@ export function generateMemberInvoiceWhatsAppUrl(params: {
     `Tanggal Terbit: ${getTodayFormatted()}`,
     '',
     `👤 *Penerima:*`,
-    `Nama: ${member.name.trim()}`,
-    `No. Member: *${member.memberCode}*`,
-    `WhatsApp: ${member.phone.trim()}`,
+    `Nama: ${(member.name || 'Member').trim()}`,
+    `No. Member: *${member.memberCode || '-'}*`,
+    `WhatsApp: ${(member.phone || '').trim()}`,
     '',
     `📦 *Item Membership:*`,
-    `• Paket: ${member.packageName || member.membershipType}`,
-    `• Periode: ${member.startDate} s/d ${member.endDate}`,
+    `• Paket: ${member.packageName || member.membershipType || 'Member Bulanan'}`,
+    `• Periode: ${member.startDate || '-'} s/d ${member.endDate || '-'}`,
     `• Jumlah: ${member.sessionCount || 4} Sesi @ ${member.durationHours || 3} Jam (${member.courtName || 'Court'})`,
     '',
     `💵 *Ringkasan Biaya:*`,

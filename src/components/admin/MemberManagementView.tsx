@@ -31,6 +31,7 @@ import {
   Grid,
   Check,
   Info,
+  Printer,
 } from 'lucide-react';
 import {
   Member,
@@ -59,6 +60,7 @@ import {
 } from '../../utils/whatsapp';
 import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { InvoiceModal } from '../common/InvoiceModal';
 import { useToast } from '../../context/ToastContext';
 
 interface MemberManagementViewProps {
@@ -105,6 +107,9 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
 
   // Selected member for detail view modal
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+  // Invoice Modal State for Member
+  const [selectedInvoiceMember, setSelectedInvoiceMember] = useState<Member | null>(null);
 
   // Registration Modal State
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -777,6 +782,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                           </button>
                           <button
                             type="button"
+                            onClick={() => setSelectedInvoiceMember(m)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-200 transition-colors cursor-pointer"
+                            title="Cetak & Download Invoice Member"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleOpenExtend(m)}
                             className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] transition-colors cursor-pointer"
                             title="Perpanjang Masa Aktif"
@@ -1379,6 +1392,24 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                 </div>
                 <ExternalLink className="w-3.5 h-3.5 text-purple-600" />
               </a>
+
+              {/* Cetak & Download Invoice Langsung */}
+              <button
+                type="button"
+                onClick={() => setSelectedInvoiceMember(registeredMemberSuccess.member)}
+                className="w-full p-3 rounded-xl border border-emerald-400 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-between transition-colors shadow-sm cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Printer className="w-4 h-4 text-white" />
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-white">4. Cetak / Download Invoice Resmi</div>
+                    <div className="text-[10px] text-emerald-100 font-normal">
+                      Preview kuitansi lengkap, cetak printer, atau simpan file invoice PDF
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-white" />
+              </button>
             </div>
 
             <div className="pt-2 flex justify-end">
@@ -1574,6 +1605,15 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                     <Receipt className="w-3 h-3" />
                     <span>Kirim Invoice WA</span>
                   </a>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInvoiceMember(selectedMember)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Cetak Invoice</span>
+                  </button>
                 </div>
 
                 <button
@@ -1824,6 +1864,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTargetId(null)}
+      />
+
+      {/* Invoice Modal for Preview, Printing & Download */}
+      <InvoiceModal
+        isOpen={Boolean(selectedInvoiceMember)}
+        onClose={() => setSelectedInvoiceMember(null)}
+        member={selectedInvoiceMember}
+        settings={businessSettings}
       />
     </div>
   );

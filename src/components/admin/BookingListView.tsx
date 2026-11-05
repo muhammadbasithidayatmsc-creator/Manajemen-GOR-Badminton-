@@ -20,6 +20,7 @@ import {
   Copy,
   Check,
   MessageCircle,
+  Printer,
 } from 'lucide-react';
 import {
   Booking,
@@ -740,10 +741,24 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  const grp = viewingSessionsGroup;
+                  setViewingSessionsGroup(null);
+                  setSelectedInvoiceMonthly(grp);
+                  setSelectedInvoiceBooking(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak Invoice</span>
+              </button>
+
               <button
                 onClick={() => setViewingSessionsGroup(null)}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-800 text-white text-xs font-semibold hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 Tutup
               </button>
