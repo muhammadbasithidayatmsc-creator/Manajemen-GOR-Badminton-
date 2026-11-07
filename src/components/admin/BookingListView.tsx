@@ -31,7 +31,12 @@ import {
   PaymentStatus,
 } from '../../types';
 import { formatRupiah, store } from '../../services/store';
-import { generateCustomerWhatsAppUrl, cleanPhoneNumber } from '../../utils/whatsapp';
+import {
+  generateCustomerWhatsAppUrl,
+  cleanPhoneNumber,
+  isValidWhatsAppNumber,
+  resolveCustomerPhoneNumber,
+} from '../../utils/whatsapp';
 import { BookingStatusBadge, PaymentStatusBadge } from '../common/StatusBadges';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { InvoiceModal } from '../common/InvoiceModal';
@@ -63,8 +68,31 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
   onDeleteMonthlyBooking,
   onUpdateMonthlyStatus,
 }) => {
-  const { success } = useToast();
+  const { success, error: notifyError } = useToast();
   const [activeTab, setActiveTab] = useState<'regular' | 'monthly'>('regular');
+
+  const handleOpenCustomerWhatsApp = (
+    e: React.MouseEvent,
+    customerName: string,
+    phone?: string,
+    customerId?: string,
+    memberId?: string
+  ) => {
+    const targetPhone = resolveCustomerPhoneNumber({
+      directPhone: phone,
+      customerId,
+      memberId,
+      customerName,
+    });
+
+    if (!isValidWhatsAppNumber(targetPhone)) {
+      e.preventDefault();
+      notifyError(
+        'Nomor WhatsApp Customer Belum Tersedia',
+        `Nomor WhatsApp untuk pelanggan "${customerName}" belum terdaftar atau tidak valid. Silakan edit data booking untuk melengkapi nomor WhatsApp.`
+      );
+    }
+  };
 
   // Search & filters for regular bookings
   const [searchTerm, setSearchTerm] = useState('');
@@ -356,14 +384,25 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                                   date: b.date,
                                   timeSlotLabel: b.timeSlotLabel,
                                   gorName: fallbackSettings.gorName,
+                                  customerId: b.customerId,
+                                  memberId: b.memberId,
                                 })}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold transition-colors"
+                                onClick={(e) =>
+                                  handleOpenCustomerWhatsApp(
+                                    e,
+                                    b.customerName,
+                                    b.customerPhone,
+                                    b.customerId,
+                                    b.memberId
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold transition-colors cursor-pointer"
                                 title="Chat WhatsApp Pelanggan"
                               >
                                 <Phone className="w-3 h-3 text-emerald-600" />
-                                <span>{b.customerPhone}</span>
+                                <span>{b.customerPhone || 'Nomor belum diisi'}</span>
                               </a>
                             </div>
                           </div>
@@ -409,10 +448,21 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                                 date: b.date,
                                 timeSlotLabel: b.timeSlotLabel,
                                 gorName: fallbackSettings.gorName,
+                                customerId: b.customerId,
+                                memberId: b.memberId,
                               })}
                               target="_blank"
                               rel="noreferrer"
-                              className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 border border-emerald-200 transition-colors inline-flex items-center justify-center"
+                              onClick={(e) =>
+                                handleOpenCustomerWhatsApp(
+                                  e,
+                                  b.customerName,
+                                  b.customerPhone,
+                                  b.customerId,
+                                  b.memberId
+                                )
+                              }
+                              className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 border border-emerald-200 transition-colors inline-flex items-center justify-center cursor-pointer"
                               title="Hubungi Pelanggan via WhatsApp"
                             >
                               <MessageCircle className="w-3.5 h-3.5" />
@@ -644,6 +694,13 @@ export const BookingListView: React.FC<BookingListViewProps> = ({
                         })}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) =>
+                          handleOpenCustomerWhatsApp(
+                            e,
+                            group.customerName,
+                            group.customerPhone
+                          )
+                        }
                         className="p-1.5 rounded-lg border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors inline-flex items-center justify-center cursor-pointer"
                         title="Hubungi Member via WhatsApp"
                       >

@@ -21,13 +21,15 @@ import {
   Receipt,
   Timer,
   ShieldCheck,
+  MessageCircle,
 } from 'lucide-react';
 import { Booking, BusinessSettings, Member, MonthlyBookingGroup } from '../../types';
 import { store, formatRupiah } from '../../services/store';
 import {
-  generateBookingWhatsAppUrl,
-  generateMonthlyBookingWhatsAppUrl,
-  generateMemberInvoiceWhatsAppUrl,
+  generateInvoiceWhatsAppUrl,
+  resolveCustomerPhoneNumber,
+  isValidWhatsAppNumber,
+  cleanPhoneNumber,
   DEFAULT_ADMIN_WHATSAPP,
 } from '../../utils/whatsapp';
 import { useToast } from '../../context/ToastContext';
@@ -129,12 +131,33 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     'Pelanggan'
   ).trim();
 
-  const customerPhone = (
+  // Safely resolve Customer Phone with strict priority:
+  // 1. Selected booking/transaction phone
+  // 2. Linked member phone
+  // 3. Linked customer phone
+  // 4. Monthly booking group phone
+  // 5. Database lookup by name
+  // NEVER fall back to Admin / Owner phone!
+  const resolvedCustomerPhone = useMemo(() => {
+    return resolveCustomerPhoneNumber({
+      directPhone: resolvedMember?.phone || resolvedMonthly?.customerPhone || booking?.customerPhone,
+      customerId: booking?.customerId,
+      memberId: resolvedMember?.id || booking?.memberId,
+      monthlyGroupId: resolvedMonthly?.id || booking?.monthlyGroupId,
+      customerName,
+    });
+  }, [resolvedMember, resolvedMonthly, booking, customerName]);
+
+  const customerPhone = resolvedCustomerPhone || (
     resolvedMember?.phone ||
     resolvedMonthly?.customerPhone ||
     booking?.customerPhone ||
     '-'
   ).trim();
+
+  const hasValidCustomerPhone = useMemo(() => {
+    return isValidWhatsAppNumber(resolvedCustomerPhone);
+  }, [resolvedCustomerPhone]);
 
   const packageName =
     resolvedMember?.packageName ||
@@ -281,60 +304,72 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     return [{ bankName: 'BCA', accountNumber: '8820-1234-56', accountHolder: 'GOR Badminton' }];
   }, [activeSettings]);
 
-  // WhatsApp Url
-  const waUrl = useMemo(() => {
-    if (resolvedMember) {
-      return generateMemberInvoiceWhatsAppUrl({
-        settings: activeSettings,
-        member: resolvedMember,
-        invoiceCode: idInvoice,
-        sendToCustomer: true,
-      });
+  // Unified Standardized WhatsApp Invoice Generator
+  // Both Daily (Harian) and Monthly (Bulanan) use this exact same standard!
+  const invoiceWhatsAppResult = useMemo(() => {
+    return generateInvoiceWhatsAppUrl({
+      settings: activeSettings,
+      bookingType: isMonthly ? 'MONTHLY' : 'REGULAR',
+      invoiceCode: idInvoice,
+      bookingCode: resolvedMonthly?.groupCode || booking?.bookingCode || idInvoice,
+      customerName,
+      customerPhone: resolvedCustomerPhone,
+      customerId: booking?.customerId,
+      memberId: resolvedMember?.id || booking?.memberId,
+      monthlyGroupId: resolvedMonthly?.id || booking?.monthlyGroupId,
+      memberCode: resolvedMember?.memberCode,
+      packageName,
+      courtName,
+      date: booking?.date,
+      timeSlotLabel,
+      durationHours,
+      periodLabel: resolvedMonthly?.periodLabel,
+      startDate: resolvedMember?.startDate || resolvedMonthly?.startDate,
+      endDate: resolvedMember?.endDate || resolvedMonthly?.endDate,
+      selectedDaysLabels: resolvedMonthly?.selectedDaysLabels,
+      sessionCount: totalSessions,
+      sessionDates: isMonthly && sessionDates.length > 0 ? sessionDates : undefined,
+      hourlyRate: hourlyRateDisplay,
+      totalAmount,
+      depositAmount,
+      remainingAmount,
+      paymentStatus,
+      notes: booking?.notes || resolvedMonthly?.notes || resolvedMember?.notes,
+    });
+  }, [
+    activeSettings,
+    isMonthly,
+    idInvoice,
+    resolvedMonthly,
+    booking,
+    customerName,
+    resolvedCustomerPhone,
+    resolvedMember,
+    packageName,
+    courtName,
+    timeSlotLabel,
+    durationHours,
+    totalSessions,
+    sessionDates,
+    hourlyRateDisplay,
+    totalAmount,
+    depositAmount,
+    remainingAmount,
+    paymentStatus,
+  ]);
+
+  const handleSendWhatsAppInvoice = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!invoiceWhatsAppResult.isValidPhone || !resolvedCustomerPhone) {
+      notifyError(
+        'Nomor WhatsApp Customer Belum Tersedia',
+        `Nomor WhatsApp untuk pelanggan "${customerName}" belum tercatat atau tidak valid. Silakan lengkapi nomor WhatsApp pelanggan pada data booking/member terlebih dahulu sebelum mengirim invoice.`
+      );
+      return;
     }
-    if (resolvedMonthly) {
-      return generateMonthlyBookingWhatsAppUrl({
-        settings: activeSettings,
-        groupCode: resolvedMonthly.groupCode,
-        customerName: resolvedMonthly.customerName,
-        customerPhone: resolvedMonthly.customerPhone,
-        courtName: resolvedMonthly.courtName,
-        periodLabel: resolvedMonthly.periodLabel,
-        startDate: resolvedMonthly.startDate,
-        endDate: resolvedMonthly.endDate,
-        selectedDaysLabels: resolvedMonthly.selectedDaysLabels || [],
-        timeSlotLabel: resolvedMonthly.timeSlotLabel,
-        sessionCount: resolvedMonthly.sessionCount,
-        ratePerSession: resolvedMonthly.ratePerSession,
-        totalAmount: resolvedMonthly.totalAmount,
-        depositAmount: resolvedMonthly.depositAmount,
-        remainingAmount: resolvedMonthly.remainingAmount,
-        dates: resolvedMonthly.dates || [],
-        notes: resolvedMonthly.notes,
-        customerType: 'MEMBER',
-        ratePerHour: hourlyRateDisplay,
-      });
-    }
-    if (booking) {
-      return generateBookingWhatsAppUrl({
-        settings: activeSettings,
-        customerName: booking.customerName || 'Pelanggan',
-        customerPhone: booking.customerPhone || '',
-        courtName: booking.courtName || 'Court',
-        date: booking.date || '',
-        timeSlotLabel: booking.timeSlotLabel || '',
-        durationHours: booking.durationHours || 1,
-        totalAmount: booking.totalAmount || 0,
-        depositAmount: booking.depositAmount || 0,
-        remainingAmount: booking.remainingAmount || 0,
-        notes: booking.notes,
-        bookingCode: booking.bookingCode || 'BKG',
-        bookingType: booking.bookingType || 'REGULAR',
-        customerType: booking.customerType || 'REGULAR',
-        ratePerHour: hourlyRateDisplay,
-      });
-    }
-    return '#';
-  }, [resolvedMember, resolvedMonthly, booking, activeSettings, idInvoice, hourlyRateDisplay]);
+
+    window.open(invoiceWhatsAppResult.url, '_blank', 'noopener,noreferrer');
+  };
 
   // Cleanup printing class on unmount
   useEffect(() => {
@@ -892,18 +927,27 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* 3. Send via WhatsApp */}
-            <a
+            {/* 3. Send via WhatsApp to Customer */}
+            <button
               id="send-wa-invoice-btn"
-              href={waUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
+              onClick={handleSendWhatsAppInvoice}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-sm hover:shadow-md cursor-pointer"
+              title={
+                hasValidCustomerPhone
+                  ? `Kirim invoice langsung ke WhatsApp Pelanggan (${resolvedCustomerPhone})`
+                  : 'Nomor WhatsApp pelanggan belum tercatat atau tidak valid'
+              }
             >
-              <span>🏸</span>
-              <span>Kirim ke WhatsApp</span>
+              <MessageCircle className="w-4 h-4 text-white" />
+              <span>Kirim ke WhatsApp Customer</span>
+              {hasValidCustomerPhone && (
+                <span className="hidden sm:inline-block text-[10px] bg-emerald-800/80 px-1.5 py-0.5 rounded font-mono text-emerald-100">
+                  {resolvedCustomerPhone}
+                </span>
+              )}
               <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-            </a>
+            </button>
 
             {/* 4. Close */}
             <button

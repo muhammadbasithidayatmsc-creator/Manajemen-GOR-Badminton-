@@ -54,6 +54,7 @@ import {
 } from '../../services/store';
 import {
   cleanPhoneNumber,
+  isValidWhatsAppNumber,
   generateMemberInfoWhatsAppUrl,
   generateMemberScheduleWhatsAppUrl,
   generateMemberInvoiceWhatsAppUrl,
@@ -97,6 +98,16 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
   const { success, error: notifyError } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | MemberStatus>('ALL');
+
+  const handleWhatsAppClick = (e: React.MouseEvent, phone?: string, name?: string) => {
+    if (!isValidWhatsAppNumber(phone)) {
+      e.preventDefault();
+      notifyError(
+        'Nomor WhatsApp Customer Belum Tersedia',
+        `Nomor WhatsApp untuk member "${name || 'Member'}" belum terdaftar atau tidak valid. Silakan lengkapi nomor WhatsApp pada data member terlebih dahulu.`
+      );
+    }
+  };
 
   // Master Data
   const packages = useMemo(() => propPackages || store.getMemberPackages(), [propPackages, members]);
@@ -691,11 +702,12 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                             <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-0.5">
                               <span className="font-mono">{m.phone}</span>
                               <a
-                                href={`https://wa.me/${cleanPhoneNumber(m.phone)}`}
+                                href={isValidWhatsAppNumber(m.phone) ? `https://wa.me/${cleanPhoneNumber(m.phone)}` : '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-emerald-600 hover:text-emerald-700"
-                                title="Chat WhatsApp"
+                                onClick={(e) => handleWhatsAppClick(e, m.phone, m.name)}
+                                className="text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                                title="Chat WhatsApp Member"
                               >
                                 <ExternalLink className="w-3 h-3 inline" />
                               </a>
@@ -1332,7 +1344,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-900 font-semibold flex items-center justify-between transition-colors shadow-2xs"
+                onClick={(e) =>
+                  handleWhatsAppClick(
+                    e,
+                    registeredMemberSuccess.member.phone,
+                    registeredMemberSuccess.member.name
+                  )
+                }
+                className="w-full p-3 rounded-xl border border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-900 font-semibold flex items-center justify-between transition-colors shadow-2xs cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   <Crown className="w-4 h-4 text-emerald-600" />
@@ -1356,7 +1375,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full p-3 rounded-xl border border-blue-300 bg-blue-50/60 hover:bg-blue-100/80 text-blue-900 font-semibold flex items-center justify-between transition-colors shadow-2xs"
+                onClick={(e) =>
+                  handleWhatsAppClick(
+                    e,
+                    registeredMemberSuccess.member.phone,
+                    registeredMemberSuccess.member.name
+                  )
+                }
+                className="w-full p-3 rounded-xl border border-blue-300 bg-blue-50/60 hover:bg-blue-100/80 text-blue-900 font-semibold flex items-center justify-between transition-colors shadow-2xs cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-blue-600" />
@@ -1379,7 +1405,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full p-3 rounded-xl border border-purple-300 bg-purple-50/60 hover:bg-purple-100/80 text-purple-900 font-semibold flex items-center justify-between transition-colors shadow-2xs"
+                onClick={(e) =>
+                  handleWhatsAppClick(
+                    e,
+                    registeredMemberSuccess.member.phone,
+                    registeredMemberSuccess.member.name
+                  )
+                }
+                className="w-full p-3 rounded-xl border border-purple-300 bg-purple-50/60 hover:bg-purple-100/80 text-purple-900 font-semibold flex items-center justify-between transition-colors shadow-2xs cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   <Receipt className="w-4 h-4 text-purple-600" />
@@ -1571,7 +1604,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                     })}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[11px] transition-colors"
+                    onClick={(e) =>
+                      handleWhatsAppClick(
+                        e,
+                        selectedMember?.phone,
+                        selectedMember?.name
+                      )
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[11px] transition-colors cursor-pointer"
                   >
                     <Crown className="w-3 h-3" />
                     <span>Kirim Info WA</span>
@@ -1586,7 +1626,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                     })}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] transition-colors"
+                    onClick={(e) =>
+                      handleWhatsAppClick(
+                        e,
+                        selectedMember?.phone,
+                        selectedMember?.name
+                      )
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] transition-colors cursor-pointer"
                   >
                     <Calendar className="w-3 h-3" />
                     <span>Kirim Jadwal WA</span>
@@ -1600,7 +1647,14 @@ export const MemberManagementView: React.FC<MemberManagementViewProps> = ({
                     })}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold text-[11px] transition-colors"
+                    onClick={(e) =>
+                      handleWhatsAppClick(
+                        e,
+                        selectedMember?.phone,
+                        selectedMember?.name
+                      )
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 font-semibold text-[11px] transition-colors cursor-pointer"
                   >
                     <Receipt className="w-3 h-3" />
                     <span>Kirim Invoice WA</span>
